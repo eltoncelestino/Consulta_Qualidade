@@ -1,0 +1,120 @@
+/* Customizações adicionais para SQM Qualidade */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+html.dark-mode {
+  scrollbar-color: #64748b #1e293b;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.dark-mode {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+body.dark-mode [class~="bg-sqm-bg"] {
+  background-color: #0f172a !important;
+}
+
+body.dark-mode [class~="bg-white"],
+body.dark-mode [class~="bg-sqm-card"] {
+  background-color: #1e293b !important;
+}
+
+body.dark-mode [class~="bg-slate-50"],
+body.dark-mode [class~="bg-slate-50/80"],
+body.dark-mode [class~="bg-slate-100"] {
+  background-color: #334155 !important;
+}
+
+body.dark-mode [class~="bg-slate-200"] {
+  background-color: #475569 !important;
+}
+
+body.dark-mode [class~="text-slate-900"],
+body.dark-mode [class~="text-slate-800"] {
+  color: #f1f5f9 !important;
+}
+
+body.dark-mode [class~="text-slate-700"],
+body.dark-mode [class~="text-slate-600"] {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode [class~="text-slate-500"],
+body.dark-mode [class~="text-slate-400"] {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode [class~="border-sqm-border"],
+body.dark-mode [class~="border-slate-100"],
+body.dark-mode [class~="border-slate-200"],
+body.dark-mode [class~="border-slate-300"] {
+  border-color: #334155 !important;
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+  color-scheme: dark;
+}
+
+/* Transições suaves */
+.transition {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#btn-atualizar:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+#btn-atualizar.is-atualizando svg {
+  animation: sqm-atualizar 0.8s linear infinite;
+}
+
+@keyframes sqm-atualizar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #btn-atualizar.is-atualizando svg {
+    animation: none;
+  }
+}
+
+/* Estilização customizada da barra de rolagem */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+body.dark-mode::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+body.dark-mode::-webkit-scrollbar-thumb {
+  background: #64748b;
+}

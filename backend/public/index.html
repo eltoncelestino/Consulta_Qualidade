@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQD - Sistema de Qualidade e Desempenho</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="/tailwind.css">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-sqm-bg text-slate-800 font-sans min-h-screen antialiased flex flex-col">
+
+  <!-- ========================================== -->
+  <!-- 1. TELA DE LOGIN (Visível se não autenticado) -->
+  <!-- ========================================== -->
+  <div id="login-view" class="flex min-h-screen items-center justify-center p-4 bg-slate-900">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 border border-slate-100">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white font-bold text-2xl shadow-lg shadow-blue-500/30 mb-4">
+          SQD
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Sistema de Qualidade e Desempenho</h1>
+      </div>
+
+      <div id="login-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm"></div>
+
+      <form id="form-login" class="space-y-5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1" for="input-usuario">
+            Matrícula
+          </label>
+          <input 
+            type="text" 
+            id="input-usuario" 
+            required 
+            placeholder="Ex: ANA001" 
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1" for="input-senha">
+            Senha
+          </label>
+          <input 
+            type="password" 
+            id="input-senha" 
+            required 
+            placeholder="Digite sua senha" 
+            class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition"
+          >
+          <p class="text-[11px] text-slate-400 mt-1">Senha inicial padrão: 123456</p>
+        </div>
+
+        <button 
+          type="submit" 
+          id="btn-login-submit"
+          class="w-full py-3 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm transition shadow-md shadow-blue-500/20 flex items-center justify-center gap-2"
+        >
+          <span>Acessar Meu Painel</span>
+        </button>
+      </form>
+
+      <div class="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
+        Ambiente restrito e seguro • SQD Sistema de Qualidade e Desempenho
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- 2. PAINEL PRINCIPAL (Visível se autenticado) -->
+  <!-- ========================================== -->
+  <div id="app-view" class="hidden min-h-screen flex flex-col md:flex-row">
+    
+    <!-- Barra Lateral -->
+    <aside class="w-full md:w-64 bg-sqm-sidebar text-white flex-shrink-0 flex flex-col justify-between shadow-xl">
+      <div>
+        <!-- Logo e Cabeçalho Sidebar -->
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+          <div class="w-16 h-10 flex-shrink-0 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white text-lg shadow-lg">
+            SQD
+          </div>
+          <div>
+            <div class="max-w-[180px] text-[9px] leading-tight text-slate-400 uppercase tracking-wide">Sistema de Qualidade e Desempenho</div>
+          </div>
+        </div>
+
+        <!-- Perfil do Analista Logado -->
+        <div class="p-5 border-b border-slate-800 bg-slate-900/60">
+          <div class="text-xs text-slate-400 uppercase font-semibold">Analista Autenticado</div>
+          <div id="user-display-name" class="text-sm font-bold text-slate-100 truncate mt-1">Carregando...</div>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              ● Ativo
+            </span>
+            <span id="user-display-matr" class="text-xs text-slate-400 font-mono">--</span>
+          </div>
+        </div>
+
+        <!-- Menu de Navegação -->
+        <nav class="p-4 space-y-1">
+          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium transition shadow-sm">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            Histórico (6 Meses)
+          </a>
+
+          <button 
+            type="button" 
+            onclick="abrirModalSenha()"
+            class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition"
+          >
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+            Alterar Minha Senha
+          </button>
+
+          <button 
+            id="btn-logout" 
+            type="button"
+            onclick="fazerLogout()"
+            class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-500/10 text-sm font-medium transition"
+          >
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Sair da Conta
+          </button>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      
+      <!-- Topo / Header da Página -->
+      <header class="h-16 bg-white border-b border-sqm-border px-6 flex items-center justify-between sticky top-0 z-10 shadow-xs">
+        <div>
+          <h2 class="text-base font-semibold text-slate-800">Acompanhamento de Monitorias</h2>
+          <p class="text-xs text-slate-500">Período regulamentar: últimos 180 dias</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button
+            id="btn-modo-escuro"
+            type="button"
+            onclick="alternarModoEscuro()"
+            aria-label="Ativar modo escuro"
+            aria-pressed="false"
+            title="Ativar modo escuro"
+            class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5"
+          >
+            <svg id="icone-modo-escuro" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+            <svg id="icone-modo-claro" class="hidden w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05 5.636 5.636m12.728 0L16.95 7.05M7.05 16.95l-1.414 1.414M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            <span id="texto-modo-escuro">Modo Escuro</span>
+          </button>
+          <button 
+            id="btn-atualizar"
+            onclick="carregarDados()" 
+            class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5"
+            title="Atualizar dados"
+            aria-label="Atualizar dados"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <span id="texto-btn-atualizar">Atualizar</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+        
+        <!-- ========================================== -->
+        <!-- RF07: CARDS DE RESUMO (MÉTRICAS TOPO)      -->
+        <!-- ========================================== -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          
+          <!-- Card 1: Total de Monitorias -->
+          <div class="bg-sqm-card rounded-xl p-5 border border-sqm-border shadow-xs flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Monitorias</p>
+              <h3 id="card-total-monitorias" class="text-3xl font-bold text-slate-900 mt-2">--</h3>
+              <p id="card-total-periodo" class="text-xs text-slate-400 mt-1">Realizadas nos últimos 6 meses</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Card 2: Nota Média Final -->
+          <div class="bg-sqm-card rounded-xl p-5 border border-sqm-border shadow-xs flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nota Média</p>
+              <h3 id="card-nota-media" class="text-3xl font-bold text-slate-900 mt-2">--%</h3>
+              <p id="card-nota-status" class="text-xs text-slate-400 mt-1">Meta de Qualidade SQD</p>
+            </div>
+            <div id="card-nota-icon" class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Card 3: TMA N1 ou percentual de pontos perdidos N2 -->
+          <div class="bg-sqm-card rounded-xl p-5 border border-sqm-border shadow-xs flex items-center justify-between">
+            <div>
+              <p id="card-terceiro-titulo" class="text-xs font-semibold text-slate-500 uppercase tracking-wider">TMA Médio</p>
+              <h3 id="card-terceiro-valor" class="text-3xl font-bold text-slate-900 mt-2">--:--:--</h3>
+              <p id="card-terceiro-descricao" class="text-xs text-slate-400 mt-1">Tempo Médio de Atendimento</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <svg id="icone-card-tma" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <svg id="icone-card-pontos" class="hidden w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M10.29 3.86l-8.1 14.02A2 2 0 003.92 21h16.16a2 2 0 001.73-3.12l-8.1-14.02a2 2 0 00-3.46 0z"/>
+              </svg>
+            </div>
+          </div>
+
+        </div>
+
+        <section class="grid grid-cols-1 xl:grid-cols-2 gap-5" aria-label="Gráficos de acompanhamento das monitorias">
+          <article class="bg-sqm-card rounded-xl border border-sqm-border shadow-xs p-5">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">Evolução da Nota Média x Volume</h3>
+                <p class="text-xs text-slate-500 mt-1">Nota média e quantidade de avaliações por mês. Amplie e arraste para navegar.</p>
+              </div>
+              <div class="inline-flex items-center gap-1" role="group" aria-label="Controles de zoom do gráfico de evolução">
+                <button type="button" onclick="ajustarZoomGrafico('evolucao', 'aproximar')" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition" aria-label="Aproximar gráfico de evolução" title="Aproximar">+</button>
+                <button type="button" onclick="ajustarZoomGrafico('evolucao', 'afastar')" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition" aria-label="Afastar gráfico de evolução" title="Afastar">−</button>
+                <button type="button" onclick="ajustarZoomGrafico('evolucao', 'redefinir')" class="h-8 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-100 transition" aria-label="Redefinir zoom do gráfico de evolução" title="Redefinir zoom">Redefinir</button>
+              </div>
+            </div>
+            <div class="relative h-72 sm:h-80">
+              <canvas id="grafico-evolucao" role="img" aria-label="Gráfico mensal de nota média e volume de monitorias"></canvas>
+              <p id="grafico-evolucao-vazio" class="hidden absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                Sem avaliações disponíveis para este gráfico.
+              </p>
+            </div>
+          </article>
+
+          <article class="bg-sqm-card rounded-xl border border-sqm-border shadow-xs p-5">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-800">Ofensores da Nota</h3>
+                <p class="text-xs text-slate-500 mt-1">Pontuações perdidas e desclassificações mais recorrentes. Amplie e arraste para navegar.</p>
+                <div class="mt-2 flex flex-wrap gap-3 text-[11px] text-slate-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-orange-500"></span>
+                    Pontuação perdida
+                  </span>
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-red-900"></span>
+                    Desclassificação
+                  </span>
+                </div>
+              </div>
+              <div class="inline-flex items-center gap-1" role="group" aria-label="Controles de zoom do gráfico de ofensores">
+                <button type="button" onclick="ajustarZoomGrafico('ofensores', 'aproximar')" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition" aria-label="Aproximar gráfico de ofensores" title="Aproximar">+</button>
+                <button type="button" onclick="ajustarZoomGrafico('ofensores', 'afastar')" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition" aria-label="Afastar gráfico de ofensores" title="Afastar">−</button>
+                <button type="button" onclick="ajustarZoomGrafico('ofensores', 'redefinir')" class="h-8 px-2 rounded-lg border border-slate-200 text-xs text-slate-600 hover:bg-slate-100 transition" aria-label="Redefinir zoom do gráfico de ofensores" title="Redefinir zoom">Redefinir</button>
+              </div>
+            </div>
+            <div class="relative h-72 sm:h-80">
+              <canvas id="grafico-ofensores" role="img" aria-label="Gráfico dos critérios que mais geraram perda de pontos"></canvas>
+              <p id="grafico-ofensores-vazio" class="hidden absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                Nenhuma pontuação perdida ou desclassificação registrada.
+              </p>
+            </div>
+          </article>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- RF08: TABELA DE DETALHAMENTO COMPLETO      -->
+        <!-- ========================================== -->
+        <div class="bg-sqm-card rounded-xl border border-sqm-border shadow-xs overflow-hidden">
+          
+          <!-- Filtros de Busca -->
+          <div class="p-5 border-b border-sqm-border flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 class="text-base font-bold text-slate-800">Histórico de Avaliações</h3>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <label class="flex items-center gap-2 text-xs text-slate-500">
+                Data início
+                <input
+                  type="date"
+                  id="filtro-data-inicio"
+                  class="px-2.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+              </label>
+
+              <label class="flex items-center gap-2 text-xs text-slate-500">
+                Data final
+                <input
+                  type="date"
+                  id="filtro-data-fim"
+                  class="px-2.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+              </label>
+
+              <button
+                type="button"
+                onclick="aplicarFiltroData()"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+              >
+                Pesquisar
+              </button>
+
+              <button
+                type="button"
+                onclick="exportarHistoricoExcel()"
+                class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+                aria-label="Exportar histórico para Excel"
+                title="Exportar histórico para Excel"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3a1 1 0 001 1h14a1 1 0 001-1v-3"/>
+                </svg>
+                Exportar para Excel
+              </button>
+
+              <input 
+                type="text" 
+                id="filtro-busca" 
+                placeholder="Buscar por Ticket ou Demanda..." 
+                oninput="filtrarTabela()"
+                class="px-3.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-60"
+              >
+
+              <p id="filtro-data-erro" class="hidden w-full basis-full text-xs text-red-600" role="alert">
+                A data inicial não pode ser posterior à data final.
+              </p>
+            </div>
+          </div>
+
+          <!-- Tabela Responsiva -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50/80 border-b border-sqm-border text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  <th class="py-3 px-5">Ticket</th>
+                  <th class="py-3 px-5">Data</th>
+                  <th class="py-3 px-5">Tipo de Demanda</th>
+                  <th class="py-3 px-5">Tipo</th>
+                  <th id="cabecalho-tma" class="py-3 px-5">TMA</th>
+                  <th class="py-3 px-5 text-center">Nota</th>
+                  <th class="py-3 px-5 text-right">Observações</th>
+                </tr>
+              </thead>
+              <tbody id="tabela-monitorias-corpo" class="text-xs divide-y divide-slate-100">
+                <tr>
+                  <td colspan="7" class="text-center py-10 text-slate-400">
+                    Carregando histórico de monitorias...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="tabela-vazia" class="hidden text-center py-12 text-slate-400 text-sm">
+            Nenhuma monitoria encontrada no período dos últimos 6 meses para os filtros selecionados.
+          </div>
+
+          <div id="historico-paginacao" class="border-t border-sqm-border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <label for="quantidade-por-pagina">Avaliações por página:</label>
+              <select
+                id="quantidade-por-pagina"
+                onchange="alterarQuantidadePorPagina()"
+                class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="10" selected>10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span id="historico-intervalo" aria-live="polite">Exibindo 0 avaliações</span>
+            </div>
+
+            <nav class="flex items-center justify-end gap-2" aria-label="Paginação do histórico">
+              <button
+                id="pagina-anterior"
+                type="button"
+                onclick="irParaPagina(paginaAtual - 1)"
+                class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Anterior
+              </button>
+              <span id="pagina-atual" class="min-w-16 text-center text-xs text-slate-500" aria-live="polite">Página 1 de 1</span>
+              <button
+                id="pagina-proxima"
+                type="button"
+                onclick="irParaPagina(paginaAtual + 1)"
+                class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Próxima
+              </button>
+            </nav>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: DETALHES DA MONITORIA (N1 & N2)     -->
+  <!-- ========================================== -->
+  <div id="modal-detalhes" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Cabeçalho do Modal -->
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-base font-bold text-slate-900" id="modal-ticket-title">Ticket TCK-0000</h3>
+            <span id="modal-nota-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">100.00%</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5" id="modal-meta-info">Data: 00/00/0000 • Canal: -- • TMA: --</p>
+        </div>
+        <button onclick="fecharModalDetalhes()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/50 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Conteúdo com Scroll -->
+      <div class="p-6 overflow-y-auto space-y-6 text-xs">
+        
+        <!-- Bloco N1 Unificada -->
+        <div id="modal-detalhes-n1" class="space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+              N1 Unificada
+            </h4>
+            <span class="text-[11px] text-slate-400">Critérios e Pontos</span>
+          </div>
+
+          <div id="modal-n1-pontuacoes" class="space-y-1.5">
+            <p class="text-slate-400 italic">Sem registros de critérios N1.</p>
+          </div>
+
+          <div id="modal-n1-desclassificacoes" class="space-y-1.5 pt-2 hidden">
+            <p class="text-red-700 font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1">
+              ⚠️ Desclassificações N1:
+            </p>
+            <div id="modal-n1-desclassificacoes-lista" class="space-y-1"></div>
+          </div>
+        </div>
+
+        <!-- Bloco N2 -->
+        <div id="modal-detalhes-n2" class="space-y-3 pt-2">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-purple-600"></span>
+              Avaliação N2
+            </h4>
+            <span class="text-[11px] text-slate-400">Pontuações e Desclassificações</span>
+          </div>
+
+          <div id="modal-n2-pontuacoes" class="space-y-1.5">
+            <p class="text-slate-400 italic">Sem registros adicionais de N2.</p>
+          </div>
+
+          <div id="modal-n2-desclassificacoes" class="space-y-1.5 pt-2 hidden">
+            <p class="text-red-700 font-semibold text-[11px] uppercase tracking-wider flex items-center gap-1">
+              ⚠️ Pontos de Atenção / Desclassificações N2:
+            </p>
+            <div id="modal-n2-desclassificacoes-lista" class="space-y-1"></div>
+          </div>
+        </div>
+
+        <p id="modal-detalhes-tipo-invalido" class="hidden text-center text-sm text-amber-700">
+          Não foi possível identificar o tipo de atendimento do analista.
+        </p>
+
+      </div>
+
+      <!-- Rodapé do Modal -->
+      <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+        <button 
+          onclick="fecharModalDetalhes()"
+          class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition"
+        >
+          Fechar
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ALTERAÇÃO DE SENHA (RF04)          -->
+  <!-- ========================================== -->
+  <div id="modal-senha" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Alterar Senha</h3>
+          <p class="text-xs text-slate-500">Atualize sua credencial de acesso ao sistema</p>
+        </div>
+        <button onclick="fecharModalSenha()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/50 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="modal-senha-alert" class="hidden m-5 p-3 rounded-lg text-xs"></div>
+
+      <form id="form-alterar-senha" onsubmit="salvarNovaSenha(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1" for="input-senha-atual">
+            Senha Atual
+          </label>
+          <input 
+            type="password" 
+            id="input-senha-atual" 
+            required 
+            placeholder="Digite a senha atual" 
+            class="w-full px-3.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1" for="input-nova-senha">
+            Nova Senha (Mínimo 6 caracteres)
+          </label>
+          <input 
+            type="password" 
+            id="input-nova-senha" 
+            required 
+            minlength="6"
+            placeholder="Digite a nova senha" 
+            class="w-full px-3.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1" for="input-confirma-senha">
+            Confirmar Nova Senha
+          </label>
+          <input 
+            type="password" 
+            id="input-confirma-senha" 
+            required 
+            minlength="6"
+            placeholder="Repita a nova senha" 
+            class="w-full px-3.5 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+        </div>
+
+        <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+          <button 
+            type="button" 
+            onclick="fecharModalSenha()"
+            class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition"
+          >
+            Cancelar
+          </button>
+          <button 
+            type="submit" 
+            id="btn-salvar-senha"
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shadow-sm"
+          >
+            Salvar Nova Senha
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <script src="/vendor/chart.umd.js"></script>
+  <script src="/vendor/xlsx.full.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
