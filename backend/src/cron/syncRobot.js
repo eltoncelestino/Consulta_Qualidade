@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const NIVEL_SEM_ATRIBUICAO = 0;
 
 /**
  * RF05 - Robô de Sincronização
@@ -23,7 +24,7 @@ async function runSyncRobot() {
         f.matricula AS id_func,
         f.matricula AS usuario,
         ? AS senha,
-        1 AS nivel
+        ${NIVEL_SEM_ATRIBUICAO} AS nivel
       FROM funcionario f
       LEFT JOIN ${tabelaAlvo} l ON (
         UPPER(TRIM(l.usuario)) = UPPER(TRIM(f.matricula))

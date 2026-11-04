@@ -151,8 +151,32 @@ O acesso remoto depende das regras de firewall e da resolução de nomes/IP da r
 | `POST` | `/api/auth/change-password` | Autenticado | Alteração da senha |
 | `GET` | `/api/monitorias/resumo` | Autenticado | Indicadores do usuário |
 | `GET` | `/api/monitorias/historico` | Autenticado | Histórico e detalhes do usuário |
+| `GET` | `/api/gerencial/perfil` | Gestor autorizado | Perfil efetivo, torres e grupos disponíveis |
+| `GET` | `/api/gerencial/dashboard` | Gestor autorizado | Resumo, evolução, comparativo e lista paginada |
+| `GET` | `/api/gerencial/analistas/:matricula/historico` | Gestor autorizado | Histórico individual dentro do escopo |
 
-As rotas de monitorias usam a matrícula autenticada para delimitar os resultados. O token deve ser enviado no cabeçalho `Authorization: Bearer <token>`.
+A visão gerencial é autorizada no backend. Têm acesso os níveis 1 e 3, ou pessoas na allowlist de gestores. O nível 1 prevalece como perfil efetivo de administrador; perfis duplos com analista podem alternar entre “Minhas notas” e a visão gerencial. Os níveis 2 e 4 não concedem acesso por si só. O nível 3 e o gerente têm escopo global; coordenadores e supervisores ficam limitados aos IDs de grupo associados à sua torre. O usuário que está gerenciando é excluído dos próprios agregados e da lista de analistas.
+
+Exemplo de filtros para `GET /api/gerencial/dashboard`:
+
+```text
+?modo=mes&periodo=2026-01&grupo_id=7004&busca=nome&ordenacao=nota&direcao=desc&pagina=1&tamanho=10
+?modo=trimestre&periodo=2026-Q1
+?modo=intervalo&inicio=2026-01-01&fim=2026-01-31
+```
+
+O dashboard retorna `filtros`, `resumo` (métricas e variação contra período anterior), `evolucao`, `comparativo`, `analistas` e `paginacao`. Períodos inválidos retornam `400`, falta de autenticação retorna `401`, e tentativa de consultar grupo ou analista fora do escopo retorna `403`. Parâmetros SQL são vinculados; ordenação, direção, datas, grupo e paginação são validados no backend. Respostas gerenciais usam `Cache-Control: private, no-store`.
+
+O mapeamento torre→grupo aprovado fica em `backend/src/config/gestores.js`; IDs de grupo são consultados na tabela `grupo`. A lista de gestores é identificada pelo nome normalizado porque não foi fornecida uma matrícula oficial para cada pessoa; todas as demais relações usam matrícula/ID. O histórico detalhado reaproveita a consulta já existente de monitorias, sempre com a matrícula verificada pelo endpoint gerencial.
+
+Para executar os testes de autorização e escopo:
+
+```powershell
+cd backend
+npm test
+```
+
+Os testes usam o runner nativo `node:test`; nenhuma dependência adicional foi introduzida.
 
 ## Segurança e dados
 

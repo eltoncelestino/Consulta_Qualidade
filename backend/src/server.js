@@ -8,6 +8,7 @@ dotenv.config();
 
 const authRoutes = require('./routes/auth.routes');
 const monitoriaRoutes = require('./routes/monitoria.routes');
+const gerencialRoutes = require('./routes/gerencial.routes');
 const runSyncRobot = require('./cron/syncRobot');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(express.json());
 // Rotas de API
 app.use('/api/auth', authRoutes);
 app.use('/api/monitorias', monitoriaRoutes);
+app.use('/api/gerencial', gerencialRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

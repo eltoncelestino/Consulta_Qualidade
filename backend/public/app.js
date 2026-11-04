@@ -3,16 +3,56 @@ const API_BASE = '/api';
 let monitoriasData = [];
 let monitoriasFiltradas = [];
 let usuarioLogado = null;
+let contextoGerencial = null;
+let analistaVisualizado = null;
+let modoAtual = 'analista';
+let matriculaGerencialDetalhe = '';
 let paginaAtual = 1;
 let quantidadePorPagina = 10;
 let dataInicioAplicada = '';
 let dataFimAplicada = '';
 let graficoEvolucao = null;
 let graficoOfensores = null;
+let graficoGerencialEvolucao = null;
+let graficoGerencialAnalistas = null;
+let paginaGerencial = 1;
+let tamanhoPaginaGerencial = 10;
+let comparativoGerencialData = [];
+let destaquesComparativoGerencial = 'menores';
+let usuariosAcessoData = [];
+let niveisAcessoData = [];
 
 // Inicialização
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   aplicarModoEscuro(localStorage.getItem('sqm_dark_mode') === 'true');
+
+  const formLogin = document.getElementById('form-login');
+  if (formLogin) formLogin.addEventListener('submit', realizarLogin);
+  document.getElementById('gerencial-modo').addEventListener('change', alternarFiltrosPeriodoGerencial);
+  document.getElementById('gerencial-grupo').addEventListener('change', () => carregarPainelGerencial(true));
+  document.getElementById('gerencial-ordenacao').addEventListener('change', () => carregarPainelGerencial(true));
+  document.getElementById('gerencial-direcao').addEventListener('change', () => carregarPainelGerencial(true));
+  document.getElementById('gerencial-destaques').addEventListener('change', evento => {
+    destaquesComparativoGerencial = evento.target.value;
+    desenharComparativoGerencial(comparativoGerencialData);
+  });
+  document.getElementById('gerencial-tamanho-pagina').addEventListener('change', () => {
+    tamanhoPaginaGerencial = Number(document.getElementById('gerencial-tamanho-pagina').value);
+    paginaGerencial = 1;
+    carregarPainelGerencial();
+  });
+  document.getElementById('gerencial-busca').addEventListener('keydown', evento => {
+    if (evento.key === 'Enter') carregarPainelGerencial(true);
+  });
+  document.getElementById('gerenciar-acessos-busca').addEventListener('input', renderizarUsuariosAcesso);
+  ['gerenciar-acessos-grupo', 'gerenciar-acessos-tipo', 'gerenciar-acessos-perfil', 'gerenciar-acessos-nivel']
+    .forEach(id => document.getElementById(id).addEventListener('change', renderizarUsuariosAcesso));
+
+  window.addEventListener('popstate', () => {
+    if (usuarioLogado) {
+      exibirApp();
+    }
+  });
 
   const token = localStorage.getItem('sqm_token');
   const user = localStorage.getItem('sqm_user');
@@ -20,6 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (token && user) {
     try {
       usuarioLogado = JSON.parse(user);
+      const sessaoValida = await carregarPerfilGerencial();
+      if (!sessaoValida) return;
       exibirApp();
     } catch (e) {
       fazerLogout();
@@ -28,12 +70,29 @@ document.addEventListener('DOMContentLoaded', () => {
     exibirLogin();
   }
 
-  // Event listener para login
-  const formLogin = document.getElementById('form-login');
-  if (formLogin) {
-    formLogin.addEventListener('submit', realizarLogin);
-  }
 });
+
+async function carregarPerfilGerencial() {
+  contextoGerencial = null;
+  try {
+    const res = await fetch(`${API_BASE}/gerencial/perfil`, { headers: getAuthHeaders() });
+    if (res.status === 401) {
+      fazerLogout();
+      return false;
+    }
+    if (res.ok) {
+      contextoGerencial = await res.json();
+      const seletor = document.getElementById('gerencial-grupo');
+      contextoGerencial.grupos.forEach(grupo => {
+        seletor.add(new Option(grupo.nome, grupo.id));
+      });
+      seletor.parentElement.classList.toggle('hidden', contextoGerencial.grupos.length <= 1);
+    }
+  } catch (error) {
+    console.warn('Não foi possível carregar o acesso gerencial:', error);
+  }
+  return true;
+}
 
 function aplicarModoEscuro(ativado) {
   document.body.classList.toggle('dark-mode', ativado);
@@ -61,8 +120,17 @@ function alternarModoEscuro() {
   aplicarModoEscuro(ativado);
 }
 
+function limparFormularioLogin() {
+  const campoUsuario = document.getElementById('input-usuario');
+  const campoSenha = document.getElementById('input-senha');
+
+  if (campoUsuario) campoUsuario.value = '';
+  if (campoSenha) campoSenha.value = '';
+}
+
 // Alternância de Telas
 function exibirLogin() {
+  limparFormularioLogin();
   document.getElementById('login-view').classList.remove('hidden');
   document.getElementById('app-view').classList.add('hidden');
 }
@@ -70,14 +138,958 @@ function exibirLogin() {
 function exibirApp() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('app-view').classList.remove('hidden');
-  atualizarVisibilidadeColunaTma();
 
   if (usuarioLogado) {
     document.getElementById('user-display-name').textContent = usuarioLogado.nome || 'Analista';
     document.getElementById('user-display-matr').textContent = usuarioLogado.matricula || '';
   }
 
+  const params = new URLSearchParams(window.location.search);
+  matriculaGerencialDetalhe = contextoGerencial
+    ? String(params.get('gerencialAnalista') || '').trim()
+    : '';
+  if (params.has('gerencialAnalista') && !matriculaGerencialDetalhe) {
+    window.history.replaceState({}, '', '/SQD');
+  }
+
+  if (matriculaGerencialDetalhe) {
+    modoAtual = 'detalhe';
+    analistaVisualizado = null;
+    mostrarPainelAnalista();
+    carregarDados();
+  } else if (contextoGerencial?.podeGerenciarAcessos && params.get('visao') === 'acessos') {
+    abrirGerenciamentoAcessos(false);
+  } else if (contextoGerencial && (
+    !contextoGerencial.podeAlternar || params.get('visao') !== 'analista'
+  )) {
+    abrirVisaoGerencial(false);
+  } else {
+    abrirMinhasNotas(false);
+  }
+  atualizarMenuNavegacao();
+}
+
+function atualizarMenuNavegacao() {
+  const visaoGerencial = document.getElementById('btn-visao-gerencial');
+  const gerenciarAcessos = document.getElementById('btn-gerenciar-acessos');
+  const minhasNotas = document.getElementById('btn-minhas-notas');
+  const historico = document.getElementById('btn-historico-notas');
+  const podeAlternar = Boolean(contextoGerencial?.podeAlternar);
+
+  visaoGerencial.classList.toggle('hidden', !contextoGerencial);
+  gerenciarAcessos.classList.toggle('hidden', !contextoGerencial?.podeGerenciarAcessos);
+  minhasNotas.classList.toggle('hidden', !podeAlternar);
+  historico.classList.toggle('hidden', Boolean(contextoGerencial));
+
+  [
+    [visaoGerencial, modoAtual === 'gerencial' || modoAtual === 'detalhe'],
+    [gerenciarAcessos, modoAtual === 'acessos'],
+    [minhasNotas, modoAtual === 'analista'],
+    [historico, !contextoGerencial && modoAtual === 'analista']
+  ].forEach(([item, ativo]) => {
+    item.classList.toggle('bg-blue-600', ativo);
+    item.classList.toggle('text-white', ativo);
+    item.classList.toggle('shadow-sm', ativo);
+    item.classList.toggle('text-slate-300', !ativo);
+    if (ativo) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
+  });
+}
+
+function mostrarPainelAnalista() {
+  document.getElementById('visao-gerencial').classList.add('hidden');
+  document.getElementById('gerenciar-acessos').classList.add('hidden');
+  document.getElementById('painel-analista').classList.remove('hidden');
+  document.getElementById('titulo-pagina').textContent = analistaVisualizado
+    ? `Histórico de ${analistaVisualizado.nome}`
+    : modoAtual === 'detalhe'
+      ? 'Histórico de desempenho do analista'
+      : 'Acompanhamento de Monitorias';
+  document.getElementById('subtitulo-pagina').textContent = analistaVisualizado
+    ? `${analistaVisualizado.grupo || ''} · ${analistaVisualizado.matricula} · últimos 180 dias`
+    : 'Período regulamentar: últimos 180 dias';
+  document.getElementById('btn-atualizar').classList.toggle('hidden', modoAtual === 'detalhe');
+  const btnVoltar = document.getElementById('btn-voltar-gerencial');
+  if (btnVoltar) {
+    btnVoltar.classList.toggle('hidden', modoAtual !== 'detalhe');
+    btnVoltar.classList.toggle('inline-flex', modoAtual === 'detalhe');
+  }
+  atualizarVisibilidadeColunaTma();
+}
+
+function abrirMinhasNotas(atualizarUrl = true) {
+  if (contextoGerencial && !contextoGerencial.podeAlternar) return;
+  modoAtual = 'analista';
+  matriculaGerencialDetalhe = '';
+  analistaVisualizado = null;
+  if (atualizarUrl) window.history.replaceState({}, '', '/SQD');
+  mostrarPainelAnalista();
+  atualizarMenuNavegacao();
   carregarDados();
+}
+
+function abrirHistoricoNotas(evento) {
+  if (evento) evento.preventDefault();
+  if (modoAtual !== 'analista') abrirMinhasNotas();
+  document.getElementById('historico-avaliacoes').scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
+}
+
+function abrirVisaoGerencial(atualizarUrl = true) {
+  if (!contextoGerencial) return;
+  modoAtual = 'gerencial';
+  matriculaGerencialDetalhe = '';
+  analistaVisualizado = null;
+  if (atualizarUrl) window.history.replaceState({}, '', '/SQD?visao=gerencial');
+  document.getElementById('painel-analista').classList.add('hidden');
+  document.getElementById('gerenciar-acessos').classList.add('hidden');
+  document.getElementById('visao-gerencial').classList.remove('hidden');
+  const btnVoltar = document.getElementById('btn-voltar-gerencial');
+  if (btnVoltar) {
+    btnVoltar.classList.add('hidden');
+    btnVoltar.classList.remove('inline-flex');
+  }
+  document.getElementById('titulo-pagina').textContent = 'Visão Gerencial de Notas';
+  document.getElementById('subtitulo-pagina').textContent =
+    `Perfil efetivo: ${contextoGerencial.perfilEfetivo}`;
+  document.getElementById('btn-atualizar').classList.remove('hidden');
+  atualizarMenuNavegacao();
+  inicializarFiltrosGerenciais();
+  alternarFiltrosPeriodoGerencial();
+  carregarPainelGerencial();
+}
+
+function abrirGerenciamentoAcessos(atualizarUrl = true) {
+  if (!contextoGerencial?.podeGerenciarAcessos) return;
+  modoAtual = 'acessos';
+  matriculaGerencialDetalhe = '';
+  analistaVisualizado = null;
+  if (atualizarUrl) window.history.replaceState({}, '', '/SQD?visao=acessos');
+  document.getElementById('painel-analista').classList.add('hidden');
+  document.getElementById('visao-gerencial').classList.add('hidden');
+  document.getElementById('gerenciar-acessos').classList.remove('hidden');
+  document.getElementById('titulo-pagina').textContent = 'Gerenciar níveis de acesso';
+  document.getElementById('subtitulo-pagina').textContent = 'Usuários ativos e permissões';
+  document.getElementById('btn-atualizar').classList.remove('hidden');
+  atualizarMenuNavegacao();
+  carregarUsuariosAcesso();
+}
+
+function abrirDetalheGerencial(matricula) {
+  if (!contextoGerencial) return;
+  matriculaGerencialDetalhe = String(matricula || '').trim();
+  if (!matriculaGerencialDetalhe) return;
+  modoAtual = 'detalhe';
+  analistaVisualizado = null;
+  window.history.replaceState(
+    {},
+    '',
+    `/SQD?gerencialAnalista=${encodeURIComponent(matriculaGerencialDetalhe)}`
+  );
+  mostrarPainelAnalista();
+  atualizarMenuNavegacao();
+  carregarDados();
+}
+
+function carregarPainelAtual() {
+  if (modoAtual === 'gerencial') return carregarPainelGerencial();
+  if (modoAtual === 'acessos') return carregarUsuariosAcesso();
+  if (modoAtual === 'detalhe') return carregarDados();
+  return carregarDados();
+}
+
+async function carregarUsuariosAcesso() {
+  if (!contextoGerencial?.podeGerenciarAcessos || modoAtual !== 'acessos') return;
+
+  const status = document.getElementById('gerenciar-acessos-status');
+  const erro = document.getElementById('gerenciar-acessos-erro');
+  const tabela = document.getElementById('usuarios-acessos-lista');
+  status.textContent = 'Carregando usuários ativos...';
+  erro.classList.add('hidden');
+  erro.textContent = '';
+  tabela.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Carregando...</td></tr>';
+
+  try {
+    const resposta = await fetch(`${API_BASE}/gerencial/acessos/usuarios`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store'
+    });
+    const dados = await resposta.json();
+    if (resposta.status === 401) return fazerLogout();
+    if (!resposta.ok) throw new Error(dados.error || 'Não foi possível carregar os usuários ativos.');
+
+    usuariosAcessoData = dados.usuarios || [];
+    niveisAcessoData = dados.niveis || [];
+    popularFiltrosUsuariosAcesso();
+    renderizarUsuariosAcesso();
+  } catch (error) {
+    tabela.innerHTML = '';
+    erro.textContent = error.message || 'Não foi possível carregar os usuários ativos.';
+    erro.classList.remove('hidden');
+    status.textContent = 'Falha ao consultar os usuários.';
+  }
+}
+
+function preencherFiltroUsuariosAcesso(id, entradas, textoPadrao) {
+  const seletor = document.getElementById(id);
+  const valorAtual = seletor.value;
+  seletor.innerHTML = `<option value="">${escaparHtml(textoPadrao)}</option>${entradas.map(entrada =>
+    `<option value="${escaparHtml(entrada.value)}">${escaparHtml(entrada.label)}</option>`
+  ).join('')}`;
+  if (entradas.some(entrada => String(entrada.value) === valorAtual)) seletor.value = valorAtual;
+}
+
+function popularFiltrosUsuariosAcesso() {
+  const grupamentos = [...new Set(usuariosAcessoData.map(usuario => usuario.grupo).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'))
+    .map(grupo => ({ value: grupo, label: grupo }));
+  preencherFiltroUsuariosAcesso('gerenciar-acessos-grupo', grupamentos, 'Todos os grupamentos');
+
+  const niveis = new Map();
+  usuariosAcessoData.forEach(usuario => {
+    const valor = !usuario.loginAtivo
+      ? 'SEM_LOGIN'
+      : usuario.nivel == null
+        ? 'SEM_NIVEL'
+        : String(usuario.nivel);
+    const rotulo = !usuario.loginAtivo
+      ? 'Sem login cadastrado'
+      : `${usuario.nivelNome} (${usuario.nivel == null ? '--' : usuario.nivel})`;
+    if (!niveis.has(valor)) niveis.set(valor, { value: valor, label: rotulo });
+  });
+  const niveisOrdenados = [...niveis.values()].sort((a, b) => {
+    if (a.value === 'SEM_LOGIN') return 1;
+    if (b.value === 'SEM_LOGIN') return -1;
+    return Number(a.value) - Number(b.value);
+  });
+  preencherFiltroUsuariosAcesso('gerenciar-acessos-nivel', niveisOrdenados, 'Todos os níveis');
+}
+
+function limparFiltrosUsuariosAcesso() {
+  [
+    'gerenciar-acessos-busca',
+    'gerenciar-acessos-grupo',
+    'gerenciar-acessos-tipo',
+    'gerenciar-acessos-perfil',
+    'gerenciar-acessos-nivel'
+  ].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderizarUsuariosAcesso();
+}
+
+function classificarTipoAtendimentoAcesso(usuario) {
+  const tipo = String(usuario.tipoAtendimento || '').trim().toUpperCase();
+  if (/^N2(?:_|$)/.test(tipo)) return 'N2';
+  if (/^N1(?:_|$)/.test(tipo) || ['TEL', 'TELEFONE', 'WEB'].includes(tipo)) return 'N1';
+  return 'OUTROS';
+}
+
+function obterUsuariosAcessoFiltrados() {
+  const termo = document.getElementById('gerenciar-acessos-busca').value
+    .trim()
+    .toLocaleLowerCase('pt-BR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const grupamento = document.getElementById('gerenciar-acessos-grupo').value;
+  const tipo = document.getElementById('gerenciar-acessos-tipo').value;
+  const perfil = document.getElementById('gerenciar-acessos-perfil').value;
+  const nivel = document.getElementById('gerenciar-acessos-nivel').value;
+  return usuariosAcessoData.filter(usuario =>
+    (!termo || `${usuario.matricula} ${usuario.nome}`
+      .toLocaleLowerCase('pt-BR')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .includes(termo)) &&
+    (!grupamento || usuario.grupo === grupamento) &&
+    (!tipo || classificarTipoAtendimentoAcesso(usuario) === tipo) &&
+    (!perfil || (perfil === 'ADMINISTRADOR'
+      ? Number(usuario.nivel) === 1
+      : usuario.perfil === perfil)) &&
+    (!nivel || (!usuario.loginAtivo ? nivel === 'SEM_LOGIN' :
+      usuario.nivel == null ? nivel === 'SEM_NIVEL' : String(usuario.nivel) === nivel))
+  );
+}
+
+function renderizarUsuariosAcesso() {
+  const tabela = document.getElementById('usuarios-acessos-lista');
+  if (!tabela) return;
+
+  const usuarios = obterUsuariosAcessoFiltrados();
+  const status = document.getElementById('gerenciar-acessos-status');
+  status.textContent = `${usuarios.length} de ${usuariosAcessoData.length} funcionário(s) ativo(s)`;
+
+  if (!usuarios.length) {
+    tabela.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Nenhum usuário corresponde aos filtros.</td></tr>';
+    return;
+  }
+
+  const nomesPerfis = {
+    ADMINISTRADOR: 'Administrador',
+    GERENTE: 'Gerente',
+    COORDENADOR: 'Coordenador',
+    SUPERVISOR: 'Supervisor',
+    LIDER: 'Líder',
+    ANALISTA_N1: 'Analista N1',
+    ANALISTA_N2: 'Analista N2',
+    OUTROS: 'Outros'
+  };
+  tabela.innerHTML = usuarios.map(usuario => {
+    const nivelAtual = usuario.nivel == null ? '' : String(usuario.nivel);
+    const nivelAtualDisponivel = niveisAcessoData.some(nivel => String(nivel.nivel) === nivelAtual);
+    const opcaoAtual = nivelAtual && !nivelAtualDisponivel
+      ? `<option value="${escaparHtml(nivelAtual)}" selected disabled>${escaparHtml(usuario.nivelNome)} (${escaparHtml(nivelAtual)})</option>`
+      : '';
+    const opcoes = niveisAcessoData.map(nivel =>
+      `<option value="${escaparHtml(nivel.nivel)}" ${String(nivel.nivel) === nivelAtual ? 'selected' : ''}>${escaparHtml(nivel.tipo)} (${escaparHtml(nivel.nivel)})</option>`
+    ).join('');
+    const controle = !usuario.loginAtivo
+      ? '<span class="text-slate-500">Sem login</span>'
+      : !usuario.podeAlterar
+        ? '<span class="text-slate-500" title="Somente um administrador pode alterar esta conta">Protegido</span>'
+        : `<div class="flex flex-wrap items-center gap-2">
+            <select class="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs" aria-label="Novo nível para ${escaparHtml(usuario.nome)}">
+              ${opcaoAtual}${opcoes}
+            </select>
+            <button type="button" data-salvar-nivel data-matricula="${escaparHtml(usuario.matricula)}" class="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-40" aria-label="Salvar nível de ${escaparHtml(usuario.nome)}">Salvar</button>
+          </div>`;
+
+    return `<tr>
+      <td class="px-5 py-3 font-mono text-slate-600">${escaparHtml(usuario.matricula)}</td>
+      <td class="px-5 py-3 font-medium text-slate-800">${escaparHtml(usuario.nome)}</td>
+      <td class="px-5 py-3 text-slate-600">${escaparHtml(nomesPerfis[usuario.perfil] || nomesPerfis.OUTROS)}</td>
+      <td class="px-5 py-3 text-slate-600">${escaparHtml(usuario.grupo || '--')}</td>
+      <td class="px-5 py-3 text-slate-700">${usuario.loginAtivo
+        ? `${escaparHtml(usuario.nivelNome)} (${escaparHtml(usuario.nivel)})`
+        : 'Sem login cadastrado'}</td>
+      <td class="px-5 py-3">${controle}</td>
+    </tr>`;
+  }).join('');
+
+  tabela.querySelectorAll('[data-salvar-nivel]').forEach(botao => {
+    botao.addEventListener('click', () => salvarNivelAcesso(botao));
+  });
+}
+
+function textoFiltroAcesso(id, padrao) {
+  const seletor = document.getElementById(id);
+  return seletor.value ? seletor.options[seletor.selectedIndex].text : padrao;
+}
+
+function exportarUsuariosAcessoExcel() {
+  const erro = document.getElementById('gerenciar-acessos-erro');
+  erro.classList.add('hidden');
+  erro.textContent = '';
+
+  if (typeof XLSX === 'undefined') {
+    erro.textContent = 'A biblioteca para exportação Excel não foi carregada. Atualize a página e tente novamente.';
+    erro.classList.remove('hidden');
+    return;
+  }
+
+  const usuarios = obterUsuariosAcessoFiltrados();
+  if (!usuarios.length) {
+    erro.textContent = 'Não há usuários correspondentes aos filtros para exportar.';
+    erro.classList.remove('hidden');
+    return;
+  }
+
+  const nomesPerfis = {
+    ADMINISTRADOR: 'Administrador',
+    GERENTE: 'Gerente',
+    COORDENADOR: 'Coordenador',
+    SUPERVISOR: 'Supervisor',
+    LIDER: 'Líder',
+    ANALISTA_N1: 'Analista N1',
+    ANALISTA_N2: 'Analista N2',
+    OUTROS: 'Outros'
+  };
+  const cabecalhos = [
+    'Matrícula',
+    'Nome',
+    'Perfil',
+    'Grupamento',
+    'Tipo de atendimento',
+    'Código do nível',
+    'Nível de acesso',
+    'Situação do login'
+  ];
+  const linhas = usuarios.map(usuario => [
+    usuario.matricula,
+    usuario.nome,
+    nomesPerfis[usuario.perfil] || 'Outros',
+    usuario.grupo || '',
+    usuario.tipoAtendimento || '',
+    usuario.loginAtivo ? usuario.nivel : '',
+    usuario.loginAtivo ? `${usuario.nivelNome} (${usuario.nivel == null ? '--' : usuario.nivel})` : 'Sem login cadastrado',
+    usuario.loginAtivo ? 'Ativo' : 'Sem login'
+  ]);
+  const linhasPlanilha = [
+    ['Relatório', 'Usuários e níveis de acesso'],
+    ['Grupamento', textoFiltroAcesso('gerenciar-acessos-grupo', 'Todos')],
+    ['Tipo de atendimento', textoFiltroAcesso('gerenciar-acessos-tipo', 'Todos')],
+    ['Perfil', textoFiltroAcesso('gerenciar-acessos-perfil', 'Todos')],
+    ['Nível de acesso', textoFiltroAcesso('gerenciar-acessos-nivel', 'Todos')],
+    ['Busca', document.getElementById('gerenciar-acessos-busca').value.trim() || 'Todos'],
+    [],
+    cabecalhos,
+    ...linhas
+  ];
+  const planilha = XLSX.utils.aoa_to_sheet(linhasPlanilha);
+  planilha['!cols'] = [
+    { wch: 16 },
+    { wch: 32 },
+    { wch: 18 },
+    { wch: 32 },
+    { wch: 22 },
+    { wch: 16 },
+    { wch: 34 },
+    { wch: 20 }
+  ];
+  const linhaCabecalho = 8;
+  const ultimaColuna = XLSX.utils.encode_col(cabecalhos.length - 1);
+  planilha['!autofilter'] = { ref: `A${linhaCabecalho}:${ultimaColuna}${linhaCabecalho + linhas.length}` };
+
+  const pastaTrabalho = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(pastaTrabalho, planilha, 'Usuários e acessos');
+  const data = new Date();
+  const timestamp = [data.getFullYear(), String(data.getMonth() + 1).padStart(2, '0'), String(data.getDate()).padStart(2, '0')].join('');
+  try {
+    XLSX.writeFile(pastaTrabalho, `usuarios_acessos_${timestamp}.xlsx`, {
+      bookType: 'xlsx',
+      compression: true
+    });
+  } catch (error) {
+    console.error('Erro ao exportar níveis de acesso:', error);
+    erro.textContent = 'Não foi possível gerar a planilha Excel. Verifique as permissões de download do navegador.';
+    erro.classList.remove('hidden');
+  }
+}
+
+async function salvarNivelAcesso(botao) {
+  const linha = botao.closest('tr');
+  const seletor = linha?.querySelector('select');
+  const matricula = botao.dataset.matricula;
+  if (!seletor || !matricula) return;
+
+  const erro = document.getElementById('gerenciar-acessos-erro');
+  const status = document.getElementById('gerenciar-acessos-status');
+  erro.classList.add('hidden');
+  erro.textContent = '';
+  botao.disabled = true;
+  botao.textContent = 'Salvando...';
+
+  try {
+    const resposta = await fetch(`${API_BASE}/gerencial/acessos/usuarios/${encodeURIComponent(matricula)}/nivel`, {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nivel: Number(seletor.value) })
+    });
+    const dados = await resposta.json();
+    if (resposta.status === 401) return fazerLogout();
+    if (!resposta.ok) throw new Error(dados.error || 'Não foi possível alterar o nível de acesso.');
+
+    await carregarUsuariosAcesso();
+    status.textContent = `Nível de acesso atualizado para ${matricula}.`;
+  } catch (error) {
+    erro.textContent = error.message || 'Não foi possível alterar o nível de acesso.';
+    erro.classList.remove('hidden');
+    botao.disabled = false;
+    botao.textContent = 'Salvar';
+  }
+}
+
+function obterPeriodoPadraoGerencial(dataReferencia = new Date()) {
+  const referencia = new Date(dataReferencia.getTime());
+  const mesAnterior = new Date(Date.UTC(
+    referencia.getUTCFullYear(),
+    referencia.getUTCMonth() - 1,
+    1
+  ));
+  const ano = mesAnterior.getUTCFullYear();
+  const mes = String(mesAnterior.getUTCMonth() + 1).padStart(2, '0');
+  return {
+    ano,
+    mes,
+    trimestre: `${ano}-Q${Math.floor(mesAnterior.getUTCMonth() / 3) + 1}`,
+    periodo: `${ano}-${mes}`
+  };
+}
+
+function inicializarFiltrosGerenciais() {
+  const periodoPadrao = obterPeriodoPadraoGerencial();
+  document.getElementById('gerencial-periodo').value = periodoPadrao.periodo;
+  document.getElementById('gerencial-trimestre').value = periodoPadrao.trimestre;
+}
+
+function alternarFiltrosPeriodoGerencial() {
+  const modo = document.getElementById('gerencial-modo').value;
+  document.getElementById('gerencial-periodo-wrap').classList.toggle('hidden', modo !== 'mes');
+  document.getElementById('gerencial-trimestre-wrap').classList.toggle('hidden', modo !== 'trimestre');
+  document.getElementById('gerencial-inicio-wrap').classList.toggle('hidden', modo !== 'intervalo');
+  document.getElementById('gerencial-fim-wrap').classList.toggle('hidden', modo !== 'intervalo');
+}
+
+function limparFiltrosGerencial() {
+  const modoSelect = document.getElementById('gerencial-modo');
+  if (modoSelect) modoSelect.value = 'mes';
+
+  inicializarFiltrosGerenciais();
+
+  const inicioInput = document.getElementById('gerencial-inicio');
+  if (inicioInput) inicioInput.value = '';
+
+  const fimInput = document.getElementById('gerencial-fim');
+  if (fimInput) fimInput.value = '';
+
+  const grupoSelect = document.getElementById('gerencial-grupo');
+  if (grupoSelect) grupoSelect.value = '';
+
+  const buscaInput = document.getElementById('gerencial-busca');
+  if (buscaInput) buscaInput.value = '';
+
+  const ordenacaoSelect = document.getElementById('gerencial-ordenacao');
+  if (ordenacaoSelect) ordenacaoSelect.value = 'nota';
+
+  const direcaoSelect = document.getElementById('gerencial-direcao');
+  if (direcaoSelect) direcaoSelect.value = 'desc';
+
+  const tamanhoSelect = document.getElementById('gerencial-tamanho-pagina');
+  if (tamanhoSelect) {
+    tamanhoSelect.value = '10';
+    tamanhoPaginaGerencial = 10;
+  }
+
+  const destaquesSelect = document.getElementById('gerencial-destaques');
+  if (destaquesSelect) {
+    destaquesSelect.value = 'menores';
+    destaquesComparativoGerencial = 'menores';
+  }
+
+  alternarFiltrosPeriodoGerencial();
+  carregarPainelGerencial(true);
+}
+
+function montarParametrosGerenciais() {
+  const parametros = new URLSearchParams();
+  const modo = document.getElementById('gerencial-modo').value;
+  parametros.set('modo', modo);
+  if (modo === 'mes') parametros.set('periodo', document.getElementById('gerencial-periodo').value);
+  if (modo === 'trimestre') parametros.set('periodo', document.getElementById('gerencial-trimestre').value);
+  if (modo === 'intervalo') {
+    parametros.set('inicio', document.getElementById('gerencial-inicio').value);
+    parametros.set('fim', document.getElementById('gerencial-fim').value);
+  }
+  const grupoId = document.getElementById('gerencial-grupo').value;
+  if (grupoId) parametros.set('grupo_id', grupoId);
+  const busca = document.getElementById('gerencial-busca').value.trim();
+  if (busca) parametros.set('busca', busca);
+  parametros.set('ordenacao', document.getElementById('gerencial-ordenacao').value);
+  parametros.set('direcao', document.getElementById('gerencial-direcao').value);
+  parametros.set('pagina', String(paginaGerencial));
+  parametros.set('tamanho', String(tamanhoPaginaGerencial));
+  return parametros;
+}
+
+function escaparHtml(valor) {
+  const entidades = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  };
+  return String(valor == null ? '' : valor).replace(/[&<>"']/g, caractere => entidades[caractere]);
+}
+
+async function carregarPainelGerencial(reiniciarPagina = false) {
+  if (!contextoGerencial || modoAtual !== 'gerencial') return;
+  if (reiniciarPagina) paginaGerencial = 1;
+  const status = document.getElementById('gerencial-status');
+  const erro = document.getElementById('gerencial-erro');
+  const tabela = document.getElementById('gerencial-lista');
+  erro.classList.add('hidden');
+  erro.textContent = '';
+  status.textContent = 'Carregando indicadores e analistas...';
+  tabela.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Carregando...</td></tr>';
+
+  try {
+    const parametros = montarParametrosGerenciais();
+    const res = await fetch(`${API_BASE}/gerencial/dashboard?${parametros.toString()}`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store'
+    });
+    const dados = await res.json();
+    if (res.status === 401) return fazerLogout();
+    if (!res.ok) throw new Error(dados.error || 'Não foi possível carregar a visão gerencial.');
+    renderizarDashboardGerencial(dados);
+    status.textContent = `${dados.resumo.total_analistas} analista(s) no escopo · ${dados.filtros.inicio} a ${dados.filtros.fim}`;
+  } catch (error) {
+    console.error('Erro ao carregar visão gerencial:', error);
+    tabela.innerHTML = '';
+    erro.textContent = error.message || 'Não foi possível carregar a visão gerencial.';
+    erro.classList.remove('hidden');
+    status.textContent = 'Falha ao consultar os dados.';
+  }
+}
+
+async function exportarDashboardGerencialExcel() {
+  if (!contextoGerencial || modoAtual !== 'gerencial') return;
+  if (typeof XLSX === 'undefined') {
+    alert('Não foi possível carregar a biblioteca necessária para gerar a planilha Excel. Atualize a página e tente novamente.');
+    return;
+  }
+
+  const botao = document.getElementById('btn-exportar-gerencial');
+  const textoBotao = document.getElementById('texto-exportar-gerencial');
+  const erro = document.getElementById('gerencial-erro');
+  botao.disabled = true;
+  textoBotao.textContent = 'Preparando...';
+  erro.classList.add('hidden');
+  erro.textContent = '';
+
+  try {
+    const parametros = montarParametrosGerenciais();
+    parametros.set('tamanho', '100');
+    let pagina = 1;
+    let dadosIniciais = null;
+    const analistas = [];
+
+    while (true) {
+      parametros.set('pagina', String(pagina));
+      const resposta = await fetch(`${API_BASE}/gerencial/dashboard?${parametros.toString()}`, {
+        headers: getAuthHeaders(),
+        cache: 'no-store'
+      });
+      const dados = await resposta.json();
+      if (resposta.status === 401) return fazerLogout();
+      if (!resposta.ok) throw new Error(dados.error || 'Não foi possível consultar os analistas para exportação.');
+
+      if (!dadosIniciais) dadosIniciais = dados;
+      analistas.push(...(dados.analistas || []));
+      if (pagina >= Number(dados.paginacao?.paginas || 1)) break;
+      pagina += 1;
+    }
+
+    if (!analistas.length) {
+      alert('Não há analistas para exportar com os filtros selecionados.');
+      return;
+    }
+
+    const grupo = document.getElementById('gerencial-grupo');
+    const busca = document.getElementById('gerencial-busca').value.trim();
+    const ordenacao = document.getElementById('gerencial-ordenacao');
+    const filtros = dadosIniciais.filtros;
+    const cabecalhos = [
+      'Matrícula',
+      'Analista',
+      'Grupamento',
+      'Nota média atual (%)',
+      'Avaliações no período',
+      'Nota média anterior (%)',
+      'Variação (p.p.)',
+      'Direção da variação'
+    ];
+    const linhas = analistas.map(analista => {
+      const notaAtual = analista.nota_media == null ? null : Number(analista.nota_media);
+      const notaAnterior = analista.nota_media_anterior == null
+        ? null
+        : Number(analista.nota_media_anterior);
+      const variacao = notaAtual == null || notaAnterior == null
+        ? null
+        : Number((notaAtual - notaAnterior).toFixed(2));
+      const direcao = analista.tendencia === '↑'
+        ? 'Aumento'
+        : analista.tendencia === '↓'
+          ? 'Queda'
+          : 'Sem variação ou dados insuficientes';
+
+      return [
+        analista.matricula,
+        analista.nome,
+        analista.grupo,
+        notaAtual,
+        Number(analista.total_avaliacoes || 0),
+        notaAnterior,
+        variacao,
+        direcao
+      ];
+    });
+    const dadosPlanilha = [
+      ['Relatório', 'Visão Gerencial de Notas'],
+      ['Período', `${filtros.inicio} a ${filtros.fim}`],
+      ['Grupamento', grupo.options[grupo.selectedIndex].textContent.trim()],
+      ['Busca', busca || 'Todos'],
+      ['Ordenação', `${ordenacao.options[ordenacao.selectedIndex].textContent.trim()} (${filtros.direcao})`],
+      [],
+      cabecalhos,
+      ...linhas
+    ];
+    const planilha = XLSX.utils.aoa_to_sheet(dadosPlanilha);
+    planilha['!cols'] = [
+      { wch: 16 },
+      { wch: 32 },
+      { wch: 32 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 34 }
+    ];
+    const linhaCabecalho = 7;
+    const ultimaColuna = XLSX.utils.encode_col(cabecalhos.length - 1);
+    planilha['!autofilter'] = { ref: `A${linhaCabecalho}:${ultimaColuna}${linhaCabecalho + linhas.length}` };
+
+    const pastaTrabalho = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(pastaTrabalho, planilha, 'Notas por analista');
+    XLSX.writeFile(pastaTrabalho, `notas_gerenciais_${filtros.inicio}_a_${filtros.fim}.xlsx`, {
+      bookType: 'xlsx',
+      compression: true
+    });
+  } catch (error) {
+    console.error('Erro ao exportar a visão gerencial:', error);
+    erro.textContent = error.message || 'Não foi possível gerar a planilha Excel.';
+    erro.classList.remove('hidden');
+  } finally {
+    botao.disabled = false;
+    textoBotao.textContent = 'Exportar Excel';
+  }
+}
+
+function renderizarDashboardGerencial(dados) {
+  const resumo = dados.resumo;
+  const formatarNota = valor => valor == null ? 'Sem dados' : `${Number(valor).toFixed(2)}%`;
+  document.getElementById('gerencial-media').textContent = formatarNota(resumo.nota_media);
+  document.getElementById('gerencial-maior').textContent = formatarNota(resumo.maior_nota);
+  document.getElementById('gerencial-menor').textContent = formatarNota(resumo.menor_nota);
+  document.getElementById('gerencial-total-analistas').textContent = resumo.total_analistas;
+  document.getElementById('gerencial-total-avaliacoes').textContent = resumo.total_avaliacoes;
+  const variacao = document.getElementById('gerencial-variacao');
+  if (resumo.variacao_periodo_anterior == null) {
+    variacao.textContent = 'Sem dados';
+  } else {
+    const valor = Number(resumo.variacao_periodo_anterior);
+    variacao.textContent = `${valor > 0 ? '↑ ' : valor < 0 ? '↓ ' : '= '}${Math.abs(valor).toFixed(2)} p.p.`;
+  }
+
+  const analistas = dados.analistas || [];
+  const tabela = document.getElementById('gerencial-lista');
+  if (!analistas.length) {
+    tabela.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Nenhum analista encontrado com os filtros selecionados.</td></tr>';
+  } else {
+    tabela.innerHTML = analistas.map(analista => {
+      const tendencia = analista.tendencia === '↑'
+        ? '<span class="text-emerald-600" aria-label="Média maior que no período anterior">↑</span>'
+        : analista.tendencia === '↓'
+          ? '<span class="text-red-600" aria-label="Média menor que no período anterior">↓</span>'
+          : '<span class="text-slate-500" aria-label="Sem variação ou dados insuficientes">=</span>';
+      return `<tr>
+        <td class="px-5 py-3 font-medium text-slate-800">${escaparHtml(analista.nome)}<span class="block text-xs text-slate-500">${escaparHtml(analista.matricula)}</span></td>
+        <td class="px-5 py-3 text-slate-600">${escaparHtml(analista.grupo)}</td>
+        <td class="px-5 py-3 text-slate-700">${analista.nota_media == null ? '--' : `${Number(analista.nota_media).toFixed(2)}%`}</td>
+        <td class="px-5 py-3 text-slate-700">${Number(analista.total_avaliacoes)}</td>
+        <td class="px-5 py-3 text-xl">${tendencia}</td>
+        <td class="px-5 py-3"><a class="font-semibold text-blue-700 hover:text-blue-900 underline" href="/SQD?gerencialAnalista=${encodeURIComponent(analista.matricula)}" onclick="abrirDetalheGerencial('${escaparHtml(analista.matricula)}'); return false;">Ver histórico</a></td>
+      </tr>`;
+    }).join('');
+  }
+
+  const paginacao = dados.paginacao;
+  document.getElementById('gerencial-paginacao-info').textContent =
+    `Exibindo ${analistas.length ? ((paginacao.pagina - 1) * paginacao.tamanho + 1) : 0}–${Math.min(paginacao.pagina * paginacao.tamanho, paginacao.total)} de ${paginacao.total} analistas`;
+  document.getElementById('gerencial-pagina').textContent =
+    `Página ${paginacao.pagina} de ${Math.max(1, paginacao.paginas)}`;
+  document.getElementById('gerencial-anterior').disabled = paginacao.pagina <= 1;
+  document.getElementById('gerencial-proxima').disabled =
+    paginacao.pagina >= Math.max(1, paginacao.paginas);
+  desenharGraficosGerenciais(dados.evolucao || [], dados.comparativo || []);
+}
+
+function desenharGraficosGerenciais(evolucao, comparativo) {
+  const canvasEvolucao = document.getElementById('gerencial-grafico-evolucao');
+  const vazioEvolucao = document.getElementById('gerencial-evolucao-vazio');
+  if (typeof Chart === 'undefined') {
+    vazioEvolucao.textContent = 'A biblioteca de gráficos não está disponível.';
+    vazioEvolucao.classList.remove('hidden');
+    document.getElementById('gerencial-analistas-vazio').textContent =
+      'A biblioteca de gráficos não está disponível.';
+    document.getElementById('gerencial-analistas-vazio').classList.remove('hidden');
+    return;
+  }
+
+  if (graficoGerencialEvolucao) graficoGerencialEvolucao.destroy();
+  comparativoGerencialData = comparativo;
+  const meses = evolucao.filter(item => item.nota_media != null);
+  canvasEvolucao.classList.toggle('hidden', !meses.length);
+  vazioEvolucao.textContent = meses.length ? 'Sem dados para o período selecionado.' : 'Sem dados para o período selecionado.';
+  vazioEvolucao.classList.toggle('hidden', Boolean(meses.length));
+  if (meses.length) {
+    const notasEvolucao = meses.map(item => Number(item.nota_media));
+    const tema = obterTemaGrafico();
+    graficoGerencialEvolucao = new Chart(canvasEvolucao, {
+      type: 'line',
+      data: {
+        labels: meses.map(item => item.periodo),
+        datasets: [{
+          label: 'Nota média (%)',
+          data: notasEvolucao,
+          borderColor: '#2563EB',
+          backgroundColor: 'rgba(37, 99, 235, 0.15)',
+          fill: true,
+          tension: 0.25,
+          pointBackgroundColor: notasEvolucao.map(nota => obterConceitoNota(nota).cor),
+          pointBorderColor: '#FFFFFF',
+          pointBorderWidth: 2,
+          pointRadius: 5,
+          pointHoverRadius: 7
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: tema.fundoTooltip,
+            padding: 12,
+            callbacks: {
+              label(context) {
+                const nota = Number(context.raw);
+                const conceito = obterConceitoNota(nota);
+                return `${conceito.emoji} Nota média: ${nota.toFixed(2)}% — ${conceito.nome}`;
+              },
+              labelTextColor(context) {
+                return obterConceitoNota(Number(context.raw)).cor;
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: tema.texto }, grid: { display: false } },
+          y: { min: 0, max: 100, ticks: { color: tema.texto, callback: valor => `${valor}%` }, grid: { color: tema.grade } }
+        }
+      }
+    });
+  }
+
+  desenharComparativoGerencial(comparativoGerencialData);
+}
+
+function desenharComparativoGerencial(comparativo) {
+  const canvas = document.getElementById('gerencial-grafico-analistas');
+  const mensagemVazia = document.getElementById('gerencial-analistas-vazio');
+  const resumo = document.getElementById('gerencial-comparativo-resumo');
+  const notasValidas = comparativo
+    .filter(item => item.nota_media != null && Number.isFinite(Number(item.nota_media)))
+    .slice()
+    .sort((a, b) => {
+      const diferenca = Number(a.nota_media) - Number(b.nota_media);
+      if (diferenca !== 0) return destaquesComparativoGerencial === 'menores' ? diferenca : -diferenca;
+      return String(a.nome).localeCompare(String(b.nome), 'pt-BR');
+    });
+  const destaques = destaquesComparativoGerencial === 'menores'
+    ? notasValidas.slice(0, 10)
+    : notasValidas.slice(0, 10);
+
+  if (!notasValidas.length) {
+    mensagemVazia.textContent = 'Sem dados para comparar no período selecionado.';
+    mensagemVazia.classList.remove('hidden');
+    canvas.classList.add('hidden');
+    resumo.textContent = 'Sem dados';
+    if (graficoGerencialAnalistas) {
+      graficoGerencialAnalistas.destroy();
+      graficoGerencialAnalistas = null;
+    }
+    return;
+  }
+
+  mensagemVazia.classList.add('hidden');
+  canvas.classList.remove('hidden');
+  if (graficoGerencialAnalistas) graficoGerencialAnalistas.destroy();
+  graficoGerencialAnalistas = null;
+  canvas.classList.toggle('hidden', !destaques.length);
+  mensagemVazia.classList.toggle('hidden', Boolean(destaques.length));
+  resumo.textContent = destaques.length
+    ? `Exibindo ${destaques.length} ${destaquesComparativoGerencial === 'menores' ? 'menores' : 'maiores'} médias entre ${notasValidas.length} analistas com avaliação no período.`
+    : 'Sem dados para comparar.';
+  if (!destaques.length) return;
+
+  const tema = obterTemaGrafico();
+  const conceitos = destaques.map(item => obterConceitoNota(Number(item.nota_media)));
+  graficoGerencialAnalistas = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: destaques.map((item, index) => {
+        const emoji = conceitos[index].emoji;
+        const nomeCortado = item.nome.length > 22 ? `${item.nome.slice(0, 19)}…` : item.nome;
+        return `${emoji} ${nomeCortado}`;
+      }),
+      datasets: [{
+        label: 'Nota média',
+        data: destaques.map(item => Number(item.nota_media)),
+        backgroundColor: conceitos.map(c => c.cor),
+        borderColor: conceitos.map(c => c.cor),
+        borderWidth: 1,
+        borderRadius: 4,
+        maxBarThickness: 22
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: tema.fundoTooltip,
+          padding: 12,
+          callbacks: {
+            title(itens) {
+              return itens.length ? destaques[itens[0].dataIndex].nome : '';
+            },
+            label(context) {
+              const nota = Number(context.raw);
+              const conceito = obterConceitoNota(nota);
+              return `${conceito.emoji} Nota média: ${nota.toFixed(2)}% — ${conceito.nome}`;
+            },
+            labelTextColor(context) {
+              return obterConceitoNota(Number(context.raw)).cor;
+            },
+            afterLabel(context) {
+              return `Avaliações: ${Number(destaques[context.dataIndex].total_avaliacoes)}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          min: 0,
+          max: 100,
+          ticks: {
+            stepSize: 20,
+            color: tema.texto,
+            callback: valor => `${valor}%`
+          },
+          grid: { color: tema.grade }
+        },
+        y: {
+          ticks: {
+            autoSkip: false,
+            color: tema.texto,
+            crossAlign: 'far'
+          },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+function mudarPaginaGerencial(delta) {
+  paginaGerencial = Math.max(1, paginaGerencial + delta);
+  carregarPainelGerencial();
 }
 
 function atualizarVisibilidadeColunaTma() {
@@ -133,8 +1145,10 @@ async function realizarLogin(e) {
     localStorage.setItem('sqm_user', JSON.stringify(data.user));
     usuarioLogado = data.user;
 
+    limparFormularioLogin();
     limparFiltrosHistorico();
-    exibirApp();
+    const sessaoValida = await carregarPerfilGerencial();
+    if (sessaoValida) exibirApp();
   } catch (err) {
     erroDiv.textContent = err.message;
     erroDiv.classList.remove('hidden');
@@ -149,7 +1163,11 @@ function fazerLogout() {
   localStorage.removeItem('sqm_token');
   localStorage.removeItem('sqm_user');
   usuarioLogado = null;
+  limparFormularioLogin();
   limparFiltrosHistorico();
+  if (window.location.search) {
+    window.history.replaceState({}, '', '/SQD');
+  }
   exibirLogin();
 }
 
@@ -199,13 +1217,25 @@ async function carregarHistorico() {
   const msgVazia = document.getElementById('tabela-vazia');
 
   try {
-    const res = await fetch(`${API_BASE}/monitorias/historico`, {
+    const endpoint = modoAtual === 'detalhe'
+      ? `${API_BASE}/gerencial/analistas/${encodeURIComponent(matriculaGerencialDetalhe)}/historico`
+      : `${API_BASE}/monitorias/historico`;
+    const res = await fetch(endpoint, {
       headers: getAuthHeaders()
     });
 
     if (res.status === 401) return fazerLogout();
     const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Não foi possível carregar o histórico.');
 
+    analistaVisualizado = data.analista || null;
+    if (analistaVisualizado) {
+      document.getElementById('titulo-pagina').textContent =
+        `Histórico de ${analistaVisualizado.nome}`;
+      document.getElementById('subtitulo-pagina').textContent =
+        `${analistaVisualizado.grupo} · ${analistaVisualizado.matricula} · últimos 180 dias`;
+      atualizarVisibilidadeColunaTma();
+    }
     monitoriasData = data.monitorias || [];
     atualizarPainelComFiltro();
   } catch (err) {
@@ -213,7 +1243,7 @@ async function carregarHistorico() {
     corpoTabela.innerHTML = `
       <tr>
         <td colspan="7" class="text-center py-8 text-red-500">
-          Não foi possível carregar as monitorias. Verifique a conexão com o banco 'quem'.
+          ${escaparHtml(err.message || "Não foi possível carregar as monitorias. Verifique a conexão com o banco 'quem'.")}
         </td>
       </tr>
     `;
@@ -233,7 +1263,8 @@ function obterTemaGrafico() {
     texto: modoEscuro ? '#CBD5E1' : '#64748B',
     textoEixo: modoEscuro ? '#CBD5E1' : '#475569',
     grade: modoEscuro ? 'rgba(203, 213, 225, 0.12)' : 'rgba(148, 163, 184, 0.15)',
-    fundoTooltip: modoEscuro ? '#020617' : '#0F172A'
+    fundoTooltip: modoEscuro ? '#020617' : '#0F172A',
+    contornoPonto: modoEscuro ? '#FFFFFF' : '#334155'
   };
 }
 
@@ -344,7 +1375,7 @@ function habilitarArrasteGrafico(grafico) {
 }
 
 function destruirGrafico(grafico) {
-  if (!grafico) return;
+  if (!grafico || !grafico.canvas) return;
 
   const handlers = grafico.$sqmDragHandlers;
   if (handlers) {
@@ -398,12 +1429,14 @@ function atualizarGraficoEvolucao(monitorias) {
   canvas.classList.toggle('hidden', meses.length === 0);
 
   destruirGrafico(graficoEvolucao);
+  graficoEvolucao = null;
   if (meses.length === 0) return;
 
   const notasMedias = meses.map(mes => {
     const dados = porMes.get(mes);
     return dados.somaNotas / dados.volume;
   });
+  const coresBarras = notasMedias.map(nota => obterConceitoNota(nota).cor);
 
   graficoEvolucao = new Chart(canvas, {
     data: {
@@ -420,23 +1453,28 @@ function atualizarGraficoEvolucao(monitorias) {
           label: 'Volume de monitorias',
           data: meses.map(mes => porMes.get(mes).volume),
           yAxisID: 'y',
-          backgroundColor: 'rgba(37, 99, 235, 0.18)',
-          borderColor: '#2563EB',
+          backgroundColor: coresBarras.map(cor => `${cor}CC`),
+          borderColor: coresBarras,
           borderWidth: 1,
-          borderRadius: 5
+          borderRadius: 5,
+          maxBarThickness: 64
         },
         {
           type: 'line',
           label: 'Nota média',
           data: notasMedias,
+          order: -1,
           yAxisID: 'y1',
-          borderColor: '#334155',
-          backgroundColor: '#334155',
+          borderColor: '#F8C74E',
+          borderWidth: 3,
+          backgroundColor: '#F8C74E',
           pointBackgroundColor: notasMedias.map(nota => obterConceitoNota(nota).cor),
-          pointBorderColor: '#FFFFFF',
-          pointBorderWidth: 2,
-          pointRadius: 5,
-          pointHoverRadius: 7,
+          pointBorderColor: notasMedias.map(() => tema.contornoPonto),
+          pointBorderWidth: 4,
+          pointRadius: 7,
+          pointHoverBorderColor: tema.contornoPonto,
+          pointHoverBorderWidth: 4,
+          pointHoverRadius: 9,
           tension: 0.3
         }
       ]
@@ -446,7 +1484,26 @@ function atualizarGraficoEvolucao(monitorias) {
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, color: tema.textoEixo } },
+        legend: {
+          position: 'bottom',
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            color: tema.textoEixo,
+            generateLabels(chart) {
+              const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              return labels.map(item => {
+                const dataset = chart.data.datasets[item.datasetIndex];
+                if (dataset && dataset.yAxisID === 'y1') {
+                  const media = Number(dataset.data[dataset.data.length - 1] ?? 0);
+                  const conceito = obterConceitoNota(media);
+                  item.text = `Nota média: ${conceito.nome}`;
+                }
+                return item;
+              });
+            }
+          }
+        },
         tooltip: {
           backgroundColor: tema.fundoTooltip,
           padding: 12,
@@ -471,6 +1528,7 @@ function atualizarGraficoEvolucao(monitorias) {
         x: { grid: { display: false }, ticks: { color: tema.texto } },
         y: {
           beginAtZero: true,
+          grace: '15%',
           title: { display: true, text: 'Quantidade de monitorias', color: tema.texto },
           ticks: { precision: 0, color: tema.texto },
           grid: { color: tema.grade }
@@ -539,6 +1597,7 @@ function atualizarGraficoOfensores(monitorias) {
   canvas.classList.toggle('hidden', ranking.length === 0);
 
   destruirGrafico(graficoOfensores);
+  graficoOfensores = null;
   if (ranking.length === 0) return;
 
   graficoOfensores = new Chart(canvas, {
@@ -653,32 +1712,35 @@ function renderizarTabela(lista) {
   corpoTabela.innerHTML = pagina.map(m => {
     const mostrarTma = obterNivelAnalista() === 'N1';
     const dataFormatada = m.data ? new Date(m.data).toLocaleDateString('pt-BR') : '--';
-    const notaNum = parseFloat(m.nota || 0);
+    const notaValor = m.nota == null || String(m.nota).trim() === ''
+      ? Number.NaN
+      : Number(m.nota);
+    const notaNum = Number.isFinite(notaValor) ? notaValor : null;
 
     let notaBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    if (notaNum < 75) {
+    if (notaNum !== null && notaNum < 75) {
       notaBadgeClass = 'bg-red-50 text-red-700 border-red-200';
-    } else if (notaNum < 90) {
+    } else if (notaNum !== null && notaNum < 90) {
       notaBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
     }
 
     const hasDesclassificacao = (m.desclassificacoes_n1 && m.desclassificacoes_n1.length > 0) ||
-                               (m.desclassificacoes_n2 && m.desclassificacoes_n2.length > 0);
+      (m.desclassificacoes_n2 && m.desclassificacoes_n2.length > 0);
 
     return `
       <tr class="hover:bg-slate-50/80 transition group">
         <td class="py-3 px-5 font-semibold text-slate-800 flex items-center gap-2">
-          <span>${m.ticket}</span>
+          <span>${escaparHtml(m.ticket)}</span>
           ${hasDesclassificacao ? '<span title="Possui desclassificação" class="text-red-500">⚠️</span>' : ''}
         </td>
-        <td class="py-3 px-5 text-slate-600">${dataFormatada}</td>
-        <td class="py-3 px-5 text-slate-700">${m.tipo_demanda || '--'}</td>
-        <td class="py-3 px-5 text-slate-500">${m.tipo_monitoria || '--'}</td>
-        ${mostrarTma ? `<td class="py-3 px-5 text-slate-600 font-mono">${m.TMA || '--'}</td>` : ''}
-        <td class="py-3 px-5 text-center">
+        <td class="py-3 px-5 text-slate-600">${escaparHtml(dataFormatada)}</td>
+        <td class="py-3 px-5 text-slate-700">${escaparHtml(m.tipo_demanda || '--')}</td>
+        <td class="py-3 px-5 text-slate-500">${escaparHtml(m.tipo_monitoria || '--')}</td>
+        ${mostrarTma ? `<td class="py-3 px-5 text-slate-600 font-mono">${escaparHtml(m.TMA || '--')}</td>` : ''}
+        <td class="py-3 px-5 text-center">${notaNum === null ? '' : `
           <span class="inline-block px-2.5 py-0.5 rounded-full font-bold border ${notaBadgeClass}">
             ${notaNum.toFixed(2)}%
-          </span>
+          </span>`}
         </td>
         <td class="py-3 px-5 text-right">
           <button 
@@ -810,7 +1872,7 @@ function filtrarTabela() {
   const busca = document.getElementById('filtro-busca').value.toLowerCase();
 
   const filtrados = monitoriasPeriodo.filter(m => {
-    const matchBusca = !busca || 
+    const matchBusca = !busca ||
       (m.ticket && m.ticket.toLowerCase().includes(busca)) ||
       (m.tipo_demanda && m.tipo_demanda.toLowerCase().includes(busca));
 
@@ -848,7 +1910,8 @@ function obterDataISO(data) {
 }
 
 function obterNivelAnalista() {
-  const tipoAnalista = String(usuarioLogado?.tipo_atend || '')
+  const pessoaAvaliada = analistaVisualizado || usuarioLogado;
+  const tipoAnalista = String(pessoaAvaliada?.tipo_atend || '')
     .trim()
     .toUpperCase()
     .normalize('NFD')
@@ -960,26 +2023,18 @@ function exportarHistoricoExcel() {
 
   const pastaTrabalho = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(pastaTrabalho, planilha, 'Histórico');
-  const conteudoArquivo = XLSX.write(pastaTrabalho, {
-    bookType: 'xlsx',
-    type: 'array',
-    cellStyles: true
-  });
-
-  const arquivo = new Blob([conteudoArquivo], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
-  const link = document.createElement('a');
   const periodo = dataInicioAplicada || dataFimAplicada
     ? `${dataInicioAplicada || 'inicio'}_a_${dataFimAplicada || 'hoje'}`
     : 'ultimos_6_meses';
-  const urlArquivo = URL.createObjectURL(arquivo);
-  link.href = urlArquivo;
-  link.download = `historico_avaliacoes_${periodo}.xlsx`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(urlArquivo), 1000);
+  try {
+    XLSX.writeFile(pastaTrabalho, `historico_avaliacoes_${periodo}.xlsx`, {
+      bookType: 'xlsx',
+      compression: true
+    });
+  } catch (error) {
+    console.error('Erro ao gerar o arquivo Excel:', error);
+    alert('Não foi possível gerar o arquivo Excel. Tente novamente ou verifique as permissões de download do navegador.');
+  }
 }
 
 // 3. Modal de Detalhes N1 e N2 (RF08)
@@ -994,7 +2049,7 @@ function abrirDetalhes(monitoriaId) {
 
   document.getElementById('modal-ticket-title').textContent = `Ticket: ${m.ticket}`;
   const dataFormatada = m.data ? new Date(m.data).toLocaleDateString('pt-BR') : '--';
-  document.getElementById('modal-meta-info').textContent = 
+  document.getElementById('modal-meta-info').textContent =
     `Data: ${dataFormatada} • Canal: ${m.canal || '--'} • TMA: ${m.TMA || '--'} • Tipo: ${m.tipo_monitoria || '--'}`;
 
   const notaNum = parseFloat(m.nota || 0);
@@ -1014,7 +2069,7 @@ function abrirDetalhes(monitoriaId) {
   if (m.pontuacoes_n1 && m.pontuacoes_n1.length > 0) {
     n1PontContainer.innerHTML = m.pontuacoes_n1.map(p => `
       <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
-        <span class="text-slate-700">${p.criterio}</span>
+        <span class="text-slate-700">${escaparHtml(p.criterio)}</span>
         ${p.pontos == null ? '' : `<span class="font-bold text-slate-900 font-mono">+${Number(p.pontos).toFixed(2)} pts</span>`}
       </div>
     `).join('');
@@ -1029,7 +2084,7 @@ function abrirDetalhes(monitoriaId) {
     n1DescContainer.classList.remove('hidden');
     n1DescLista.innerHTML = m.desclassificacoes_n1.map(d => `
       <div class="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700">
-        • ${d.motivo}
+        • ${escaparHtml(d.motivo)}
       </div>
     `).join('');
   } else {
@@ -1041,7 +2096,7 @@ function abrirDetalhes(monitoriaId) {
   if (m.pontuacoes_n2 && m.pontuacoes_n2.length > 0) {
     n2PontContainer.innerHTML = m.pontuacoes_n2.map(p => `
       <div class="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
-        <span class="text-slate-700">${p.criterio}</span>
+        <span class="text-slate-700">${escaparHtml(p.criterio)}</span>
         <span class="font-bold text-slate-900 font-mono">+${Number(p.pontos).toFixed(2)} pts</span>
       </div>
     `).join('');
@@ -1056,7 +2111,7 @@ function abrirDetalhes(monitoriaId) {
     n2DescContainer.classList.remove('hidden');
     n2DescLista.innerHTML = m.desclassificacoes_n2.map(d => `
       <div class="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 font-medium">
-        ⚠️ ${d.motivo}
+        ⚠️ ${escaparHtml(d.motivo)}
       </div>
     `).join('');
   } else {

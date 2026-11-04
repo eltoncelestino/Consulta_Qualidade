@@ -25,6 +25,11 @@ async function obterColunasMonitorias() {
       tma: nomes.includes('tma_dia') ? 'tma_dia' : 'TMA',
       canal: nomes.includes('canal_atendimento') ? 'canal_atendimento' : 'canal',
       demanda: nomes.includes('tipo_ticket') ? 'tipo_ticket' : 'tipo_demanda',
+      observacao: nomes.includes('observacao')
+        ? 'observacao'
+        : nomes.includes('observacoes')
+          ? 'observacoes'
+          : null
     };
   } catch (e) {
     colunasMonitorias = {
@@ -34,6 +39,7 @@ async function obterColunasMonitorias() {
       tma: 'tma_dia',
       canal: 'canal_atendimento',
       demanda: 'tipo_ticket',
+      observacao: null,
     };
   }
   return colunasMonitorias;
@@ -54,7 +60,7 @@ exports.getResumo = async (req, res) => {
         COALESCE(MIN(m.${col.data}), CURDATE()) AS data_inicio_periodo,
         COALESCE(MAX(m.${col.data}), CURDATE()) AS data_fim_periodo
       FROM monitorias m
-      WHERE m.${col.matricula} = ?
+      WHERE UPPER(TRIM(m.${col.matricula})) = UPPER(TRIM(?))
         AND m.${col.data} >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
         AND m.${col.demanda} IS NOT NULL
         AND TRIM(m.${col.demanda}) <> ''
@@ -77,8 +83,10 @@ exports.getResumo = async (req, res) => {
 };
 
 // RF06 & RF08 - Listagem Detalhada dos últimos 6 meses com Pontuações e Desclassificações N1 e N2
-exports.getHistorico = async (req, res) => {
-  const usuarioLogado = req.user.matricula; // Garantia RF02
+exports.getHistorico = async (req, res, matricula = req.user.matricula, analista = null) => {
+  const usuarioLogado = typeof matricula === 'string'
+    ? matricula
+    : req.user.matricula;
   const { busca, canal, tipo_monitoria } = req.query;
 
   try {
@@ -94,9 +102,10 @@ exports.getHistorico = async (req, res) => {
         m.${col.demanda} AS tipo_demanda,
         m.tipo_monitoria,
         m.${col.canal} AS canal,
-        m.${col.tma} AS TMA
+        m.${col.tma} AS TMA,
+        ${col.observacao ? `m.${col.observacao}` : 'NULL'} AS observacao
       FROM monitorias m
-      WHERE m.${col.matricula} = ?
+      WHERE UPPER(TRIM(m.${col.matricula})) = UPPER(TRIM(?))
         AND m.${col.data} >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
         AND m.${col.demanda} IS NOT NULL
         AND TRIM(m.${col.demanda}) <> ''
@@ -126,7 +135,11 @@ exports.getHistorico = async (req, res) => {
     const [monitoriasBase] = await pool.query(query, params);
 
     if (monitoriasBase.length === 0) {
-      return res.json({ total: 0, monitorias: [] });
+      return res.json({
+        ...(analista ? { analista } : {}),
+        total: 0,
+        monitorias: []
+      });
     }
 
     // Busca detalhada dos critérios para as monitorias encontradas
@@ -324,6 +337,7 @@ exports.getHistorico = async (req, res) => {
     }));
 
     return res.json({
+      ...(analista ? { analista } : {}),
       total: monitorias.length,
       monitorias
     });

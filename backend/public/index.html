@@ -6,7 +6,7 @@
   <title>SQD - Sistema de Qualidade e Desempenho</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="stylesheet" href="/tailwind.css">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=20261028-1">
 </head>
 <body class="bg-sqm-bg text-slate-800 font-sans min-h-screen antialiased flex flex-col">
 
@@ -34,6 +34,9 @@
             id="input-usuario" 
             required 
             placeholder="Ex: ANA001" 
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
             class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition"
           >
         </div>
@@ -47,6 +50,9 @@
             id="input-senha" 
             required 
             placeholder="Digite sua senha" 
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
             class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm transition"
           >
           <p class="text-[11px] text-slate-400 mt-1">Senha inicial padrão: 123456</p>
@@ -100,7 +106,28 @@
 
         <!-- Menu de Navegação -->
         <nav class="p-4 space-y-1">
-          <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium transition shadow-sm">
+          <button
+            id="btn-visao-gerencial"
+            type="button"
+            onclick="abrirVisaoGerencial()"
+            class="hidden w-full text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition"
+          >Visão Gerencial de Notas</button>
+          <button
+            id="btn-gerenciar-acessos"
+            type="button"
+            onclick="abrirGerenciamentoAcessos()"
+            class="hidden w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2m6-10a4 4 0 100-8 4 4 0 000 8zm7-1h5m-2.5-2.5v5"/></svg>
+            Gerenciar níveis de acesso
+          </button>
+          <button
+            id="btn-minhas-notas"
+            type="button"
+            onclick="abrirMinhasNotas()"
+            class="hidden w-full text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition"
+          >Minhas notas</button>
+          <a id="btn-historico-notas" href="#historico-avaliacoes" onclick="abrirHistoricoNotas(event)" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 text-sm font-medium transition">
             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
             </svg>
@@ -138,9 +165,23 @@
       
       <!-- Topo / Header da Página -->
       <header class="h-16 bg-white border-b border-sqm-border px-6 flex items-center justify-between sticky top-0 z-10 shadow-xs">
-        <div>
-          <h2 class="text-base font-semibold text-slate-800">Acompanhamento de Monitorias</h2>
-          <p class="text-xs text-slate-500">Período regulamentar: últimos 180 dias</p>
+        <div class="flex items-center gap-3">
+          <button
+            id="btn-voltar-gerencial"
+            type="button"
+            onclick="abrirVisaoGerencial()"
+            class="hidden px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-200 rounded-lg transition items-center gap-1.5 shadow-2xs"
+            title="Voltar para a Visão Gerencial"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            <span>Voltar à Visão Gerencial</span>
+          </button>
+          <div>
+            <h2 id="titulo-pagina" class="text-base font-semibold text-slate-800">Acompanhamento de Monitorias</h2>
+            <p id="subtitulo-pagina" class="text-xs text-slate-500">Período regulamentar: últimos 180 dias</p>
+          </div>
         </div>
 
         <div class="flex items-center gap-3">
@@ -163,7 +204,7 @@
           </button>
           <button 
             id="btn-atualizar"
-            onclick="carregarDados()" 
+            onclick="carregarPainelAtual()"
             class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1.5"
             title="Atualizar dados"
             aria-label="Atualizar dados"
@@ -176,7 +217,202 @@
         </div>
       </header>
 
-      <div class="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+      <section id="visao-gerencial" class="hidden p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full" aria-labelledby="titulo-gerencial">
+        <div class="flex flex-col gap-4 rounded-xl border border-sqm-border bg-sqm-card p-5 shadow-xs">
+          <div>
+            <h3 id="titulo-gerencial" class="text-lg font-bold text-slate-800">Visão Gerencial de Notas de Analistas</h3>
+            <p class="mt-1 text-xs text-slate-500">Resultados limitados ao escopo de acesso do seu perfil.</p>
+          </div>
+          <div class="sqm-gerencial-filtros">
+            <label class="text-xs font-medium text-slate-600">Período
+              <select id="gerencial-modo" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <option value="mes">Mês</option>
+                <option value="trimestre">Trimestre</option>
+                <option value="intervalo">Intervalo</option>
+              </select>
+            </label>
+            <label id="gerencial-periodo-wrap" class="text-xs font-medium text-slate-600">Mês
+              <input id="gerencial-periodo" type="month" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            </label>
+            <label id="gerencial-trimestre-wrap" class="hidden text-xs font-medium text-slate-600">Trimestre
+              <input id="gerencial-trimestre" type="text" inputmode="numeric" placeholder="2026-Q1" pattern="\d{4}-Q[1-4]" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            </label>
+            <label id="gerencial-inicio-wrap" class="hidden text-xs font-medium text-slate-600">Data inicial
+              <input id="gerencial-inicio" type="date" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            </label>
+            <label id="gerencial-fim-wrap" class="hidden text-xs font-medium text-slate-600">Data final
+              <input id="gerencial-fim" type="date" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            </label>
+            <label class="text-xs font-medium text-slate-600">Grupamento
+              <select id="gerencial-grupo" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <option value="">Todas as torres do meu escopo</option>
+              </select>
+            </label>
+            <label class="text-xs font-medium text-slate-600">Buscar analista
+              <input id="gerencial-busca" type="search" maxlength="100" placeholder="Nome ou matrícula" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+            </label>
+            <label class="text-xs font-medium text-slate-600">Ordenar por
+              <select id="gerencial-ordenacao" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <option value="nota">Nota média</option>
+                <option value="nome">Nome</option>
+                <option value="avaliacoes">Avaliações</option>
+              </select>
+            </label>
+            <label class="text-xs font-medium text-slate-600">Direção
+              <select id="gerencial-direcao" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+                <option value="desc">Decrescente</option>
+                <option value="asc">Crescente</option>
+              </select>
+            </label>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="btn-aplicar-filtros-gerencial" onclick="carregarPainelGerencial(true)" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Aplicar filtros</button>
+            <button type="button" id="btn-limpar-filtros-gerencial" onclick="limparFiltrosGerencial()" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">Limpar filtros</button>
+            <button type="button" id="btn-exportar-gerencial" onclick="exportarDashboardGerencialExcel()" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition disabled:cursor-wait disabled:opacity-60" aria-label="Exportar visão gerencial para Excel" title="Exportar visão gerencial para Excel">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v4h14v-4"/></svg>
+              <span id="texto-exportar-gerencial">Exportar Excel</span>
+            </button>
+          </div>
+        </div>
+
+        <p id="gerencial-status" class="text-sm text-slate-500" role="status" aria-live="polite"></p>
+        <div id="gerencial-erro" class="hidden rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert"></div>
+        <div id="gerencial-cards" class="sqm-gerencial-cards">
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Nota média da equipe</p><p id="gerencial-media" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Maior nota</p><p id="gerencial-maior" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Menor nota</p><p id="gerencial-menor" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Analistas ativos</p><p id="gerencial-total-analistas" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Avaliações no período</p><p id="gerencial-total-avaliacoes" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs"><p class="text-xs text-slate-500">Variação vs. período anterior</p><p id="gerencial-variacao" class="mt-2 text-2xl font-bold text-slate-800">--</p></article>
+        </div>
+        <section class="sqm-gerencial-graficos" aria-label="Gráficos de desempenho da equipe">
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs">
+            <h3 class="font-bold text-slate-800">Evolução da nota média da equipe</h3>
+            <div class="sqm-gerencial-grafico"><canvas id="gerencial-grafico-evolucao" role="img" aria-label="Evolução mensal da nota média da equipe"></canvas></div>
+            <p id="gerencial-evolucao-vazio" class="hidden py-6 text-center text-sm text-slate-500">Sem avaliações no período.</p>
+          </article>
+          <article class="bg-sqm-card rounded-xl border border-sqm-border p-5 shadow-xs">
+            <div class="sqm-gerencial-comparativo-cabecalho">
+              <div>
+                <h3 class="font-bold text-slate-800">Comparativo de notas por analista</h3>
+                <p id="gerencial-comparativo-resumo" class="mt-1 text-xs text-slate-500" aria-live="polite"></p>
+              </div>
+              <label for="gerencial-destaques" class="text-xs text-slate-500">
+                Exibir
+                <select id="gerencial-destaques" class="rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+                  <option value="menores">10 menores médias</option>
+                  <option value="maiores">10 maiores médias</option>
+                </select>
+              </label>
+            </div>
+            <div class="sqm-gerencial-grafico sqm-gerencial-grafico-barras"><canvas id="gerencial-grafico-analistas" role="img" aria-label="Comparativo de notas médias por analista"></canvas></div>
+            <p id="gerencial-analistas-vazio" class="hidden py-6 text-center text-sm text-slate-500">Sem dados para comparar.</p>
+          </article>
+        </section>
+
+        <section class="overflow-hidden rounded-xl border border-sqm-border bg-sqm-card shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-sqm-border p-5">
+            <div><h3 class="font-bold text-slate-800">Desempenho por analista</h3><p id="gerencial-paginacao-info" class="mt-1 text-xs text-slate-500"></p></div>
+            <label class="text-xs text-slate-500">Itens por página
+              <select id="gerencial-tamanho-pagina" class="ml-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+                <option>10</option><option>25</option><option>50</option><option>100</option>
+              </select>
+            </label>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] text-left text-sm">
+              <thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr>
+                <th scope="col" class="px-5 py-3">Analista</th><th scope="col" class="px-5 py-3">Grupamento</th>
+                <th scope="col" class="px-5 py-3">Nota média</th><th scope="col" class="px-5 py-3">Avaliações</th>
+                <th scope="col" class="px-5 py-3"><span title="A seta compara a média deste período com a do período anterior.">Variação</span></th><th scope="col" class="px-5 py-3">Detalhe</th>
+              </tr></thead>
+              <tbody id="gerencial-lista" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div class="flex items-center justify-end gap-3 border-t border-sqm-border p-4">
+            <button id="gerencial-anterior" type="button" onclick="mudarPaginaGerencial(-1)" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs disabled:opacity-40">Anterior</button>
+            <span id="gerencial-pagina" class="text-xs text-slate-500" aria-live="polite">Página 1 de 1</span>
+            <button id="gerencial-proxima" type="button" onclick="mudarPaginaGerencial(1)" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs disabled:opacity-40">Próxima</button>
+          </div>
+        </section>
+      </section>
+
+      <section id="gerenciar-acessos" class="hidden p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full" aria-labelledby="titulo-gerenciar-acessos">
+        <div class="flex flex-col gap-4 rounded-xl border border-sqm-border bg-sqm-card p-5 shadow-xs sm:flex-row sm:justify-between">
+          <div>
+            <h3 id="titulo-gerenciar-acessos" class="text-lg font-bold text-slate-800">Gerenciar níveis de acesso</h3>
+            <p class="mt-1 text-xs text-slate-500">Funcionários ativos. Gestores sem nível 1 não podem promover contas a administrador nem desativá-las.</p>
+          </div>
+          <label for="gerenciar-acessos-busca" class="w-full text-xs font-medium text-slate-600">
+            Buscar por matrícula ou nome
+            <input id="gerenciar-acessos-busca" type="search" maxlength="100" placeholder="Digite matrícula ou nome" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+          </label>
+        </div>
+        <div class="sqm-gerencial-filtros" aria-label="Filtros de usuários ativos">
+          <label class="text-xs font-medium text-slate-600">Grupamento
+            <select id="gerenciar-acessos-grupo" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+              <option value="">Todos os grupamentos</option>
+            </select>
+          </label>
+          <label class="text-xs font-medium text-slate-600">Tipo de atendimento
+            <select id="gerenciar-acessos-tipo" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+              <option value="">Todos os tipos</option>
+              <option value="N1">Analista N1</option>
+              <option value="N2">Analista N2</option>
+              <option value="OUTROS">Outros tipos</option>
+            </select>
+          </label>
+          <label class="text-xs font-medium text-slate-600">Perfil
+            <select id="gerenciar-acessos-perfil" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+              <option value="">Todos os perfis</option>
+              <option value="GERENTE">Gerente</option>
+              <option value="COORDENADOR">Coordenador</option>
+              <option value="SUPERVISOR">Supervisor</option>
+              <option value="ANALISTA_N1">Analista N1</option>
+              <option value="ANALISTA_N2">Analista N2</option>
+              <option value="ADMINISTRADOR">Administrador</option>
+              <option value="LIDER">Líder</option>
+              <option value="OUTROS">Outros perfis</option>
+            </select>
+          </label>
+          <label class="text-xs font-medium text-slate-600">Nível de acesso
+            <select id="gerenciar-acessos-nivel" class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2">
+              <option value="">Todos os níveis</option>
+            </select>
+          </label>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button type="button" id="btn-limpar-filtros-acessos" onclick="limparFiltrosUsuariosAcesso()" class="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 transition" aria-label="Limpar filtros de usuários" title="Limpar filtros">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>
+            <span>Limpar filtros</span>
+          </button>
+          <button type="button" id="btn-exportar-acessos" onclick="exportarUsuariosAcessoExcel()" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 transition" aria-label="Exportar usuários filtrados para Excel" title="Exportar usuários filtrados para Excel">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v4h14v-4"/></svg>
+            <span>Exportar Excel</span>
+          </button>
+        </div>
+        <p id="gerenciar-acessos-status" class="text-sm text-slate-500" role="status" aria-live="polite"></p>
+        <div id="gerenciar-acessos-erro" class="hidden rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert"></div>
+        <div class="overflow-hidden rounded-xl border border-sqm-border bg-sqm-card shadow-xs">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[640px] text-left text-sm">
+              <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th scope="col" class="px-5 py-3">Matrícula</th>
+                  <th scope="col" class="px-5 py-3">Nome</th>
+                  <th scope="col" class="px-5 py-3">Perfil</th>
+                  <th scope="col" class="px-5 py-3">Grupamento</th>
+                  <th scope="col" class="px-5 py-3">Nível atual</th>
+                  <th scope="col" class="px-5 py-3">Alterar nível</th>
+                </tr>
+              </thead>
+              <tbody id="usuarios-acessos-lista" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <div id="painel-analista" class="p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         
         <!-- ========================================== -->
         <!-- RF07: CARDS DE RESUMO (MÉTRICAS TOPO)      -->
@@ -285,7 +521,7 @@
         <!-- ========================================== -->
         <!-- RF08: TABELA DE DETALHAMENTO COMPLETO      -->
         <!-- ========================================== -->
-        <div class="bg-sqm-card rounded-xl border border-sqm-border shadow-xs overflow-hidden">
+        <div id="historico-avaliacoes" class="bg-sqm-card rounded-xl border border-sqm-border shadow-xs overflow-hidden">
           
           <!-- Filtros de Busca -->
           <div class="p-5 border-b border-sqm-border flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -590,6 +826,6 @@
 
   <script src="/vendor/chart.umd.js"></script>
   <script src="/vendor/xlsx.full.min.js"></script>
-  <script src="/app.js"></script>
+  <script src="/app.js?v=20261029-2"></script>
 </body>
 </html>
