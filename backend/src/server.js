@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const path = require('path');
 const dotenv = require('dotenv');
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const authRoutes = require('./routes/auth.routes');
 const monitoriaRoutes = require('./routes/monitoria.routes');

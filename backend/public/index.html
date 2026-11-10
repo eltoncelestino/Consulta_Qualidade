@@ -409,6 +409,40 @@
               <tbody id="usuarios-acessos-lista" class="divide-y divide-slate-100"></tbody>
             </table>
           </div>
+          <div id="gerenciar-acessos-paginacao" class="border-t border-sqm-border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <label for="gerenciar-acessos-tamanho-pagina">Itens por página:</label>
+              <select
+                id="gerenciar-acessos-tamanho-pagina"
+                class="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+
+            <nav class="flex items-center justify-end gap-2" aria-label="Paginação do gerenciamento de acessos">
+              <button
+                id="gerenciar-acessos-anterior"
+                type="button"
+                onclick="mudarPaginaAcessos(-1)"
+                class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Anterior
+              </button>
+              <span id="gerenciar-acessos-pagina-info" class="min-w-16 text-center text-xs text-slate-500" aria-live="polite">Página 1 de 1</span>
+              <button
+                id="gerenciar-acessos-proxima"
+                type="button"
+                onclick="mudarPaginaAcessos(1)"
+                class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+              >
+                Próxima
+              </button>
+            </nav>
+          </div>
         </div>
       </section>
 

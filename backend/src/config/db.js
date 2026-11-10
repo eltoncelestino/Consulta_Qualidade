@@ -1,7 +1,9 @@
 const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 
-dotenv.config();
+const path = require('path');
+
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Tratamento seguro da senha: se for aspas vazias ou espaços, considera sem senha
 let dbPassword = process.env.DB_PASSWORD !== undefined ? String(process.env.DB_PASSWORD).trim() : '';

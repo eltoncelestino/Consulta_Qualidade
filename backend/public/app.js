@@ -21,6 +21,8 @@ let comparativoGerencialData = [];
 let destaquesComparativoGerencial = 'menores';
 let usuariosAcessoData = [];
 let niveisAcessoData = [];
+let paginaAcessos = 1;
+let tamanhoPaginaAcessos = 25;
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
@@ -44,9 +46,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('gerencial-busca').addEventListener('keydown', evento => {
     if (evento.key === 'Enter') carregarPainelGerencial(true);
   });
-  document.getElementById('gerenciar-acessos-busca').addEventListener('input', renderizarUsuariosAcesso);
+  document.getElementById('gerenciar-acessos-busca').addEventListener('input', () => {
+    paginaAcessos = 1;
+    renderizarUsuariosAcesso();
+  });
   ['gerenciar-acessos-grupo', 'gerenciar-acessos-tipo', 'gerenciar-acessos-perfil', 'gerenciar-acessos-nivel']
-    .forEach(id => document.getElementById(id).addEventListener('change', renderizarUsuariosAcesso));
+    .forEach(id => document.getElementById(id).addEventListener('change', () => {
+      paginaAcessos = 1;
+      renderizarUsuariosAcesso();
+    }));
+  document.getElementById('gerenciar-acessos-tamanho-pagina')?.addEventListener('change', evento => {
+    tamanhoPaginaAcessos = Number(evento.target.value) || 25;
+    paginaAcessos = 1;
+    renderizarUsuariosAcesso();
+  });
 
   window.addEventListener('popstate', () => {
     if (usuarioLogado) {
@@ -300,8 +313,11 @@ function carregarPainelAtual() {
   return carregarDados();
 }
 
-async function carregarUsuariosAcesso() {
+async function carregarUsuariosAcesso(reiniciarPagina = true) {
   if (!contextoGerencial?.podeGerenciarAcessos || modoAtual !== 'acessos') return;
+  if (reiniciarPagina) {
+    paginaAcessos = 1;
+  }
 
   const status = document.getElementById('gerenciar-acessos-status');
   const erro = document.getElementById('gerenciar-acessos-erro');
@@ -377,7 +393,18 @@ function limparFiltrosUsuariosAcesso() {
   ].forEach(id => {
     document.getElementById(id).value = '';
   });
+  paginaAcessos = 1;
   renderizarUsuariosAcesso();
+}
+
+function mudarPaginaAcessos(delta) {
+  const usuarios = obterUsuariosAcessoFiltrados();
+  const totalPaginas = Math.max(1, Math.ceil(usuarios.length / tamanhoPaginaAcessos));
+  const novaPagina = paginaAcessos + delta;
+  if (novaPagina >= 1 && novaPagina <= totalPaginas) {
+    paginaAcessos = novaPagina;
+    renderizarUsuariosAcesso();
+  }
 }
 
 function classificarTipoAtendimentoAcesso(usuario) {
@@ -419,11 +446,39 @@ function renderizarUsuariosAcesso() {
 
   const usuarios = obterUsuariosAcessoFiltrados();
   const status = document.getElementById('gerenciar-acessos-status');
-  status.textContent = `${usuarios.length} de ${usuariosAcessoData.length} funcionário(s) ativo(s)`;
+  const paginacaoContainer = document.getElementById('gerenciar-acessos-paginacao');
+  const btnAnterior = document.getElementById('gerenciar-acessos-anterior');
+  const btnProxima = document.getElementById('gerenciar-acessos-proxima');
+  const paginaInfo = document.getElementById('gerenciar-acessos-pagina-info');
 
-  if (!usuarios.length) {
+  const total = usuarios.length;
+  const totalPaginas = Math.max(1, Math.ceil(total / tamanhoPaginaAcessos));
+  if (paginaAcessos > totalPaginas) paginaAcessos = totalPaginas;
+  if (paginaAcessos < 1) paginaAcessos = 1;
+
+  if (!total) {
+    status.textContent = `0 de ${usuariosAcessoData.length} funcionário(s) ativo(s)`;
     tabela.innerHTML = '<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">Nenhum usuário corresponde aos filtros.</td></tr>';
+    if (paginacaoContainer) paginacaoContainer.classList.add('hidden');
     return;
+  }
+
+  const inicio = (paginaAcessos - 1) * tamanhoPaginaAcessos;
+  const fim = Math.min(inicio + tamanhoPaginaAcessos, total);
+  const usuariosPaginados = usuarios.slice(inicio, fim);
+
+  status.textContent = `Exibindo ${inicio + 1}–${fim} de ${total} usuário(s) filtrado(s)`;
+  if (paginacaoContainer) {
+    paginacaoContainer.classList.remove('hidden');
+  }
+  if (btnAnterior) {
+    btnAnterior.disabled = paginaAcessos <= 1;
+  }
+  if (btnProxima) {
+    btnProxima.disabled = paginaAcessos >= totalPaginas;
+  }
+  if (paginaInfo) {
+    paginaInfo.textContent = `Página ${paginaAcessos} de ${totalPaginas}`;
   }
 
   const nomesPerfis = {
@@ -436,7 +491,7 @@ function renderizarUsuariosAcesso() {
     ANALISTA_N2: 'Analista N2',
     OUTROS: 'Outros'
   };
-  tabela.innerHTML = usuarios.map(usuario => {
+  tabela.innerHTML = usuariosPaginados.map(usuario => {
     const nivelAtual = usuario.nivel == null ? '' : String(usuario.nivel);
     const nivelAtualDisponivel = niveisAcessoData.some(nivel => String(nivel.nivel) === nivelAtual);
     const opcaoAtual = nivelAtual && !nivelAtualDisponivel
@@ -591,7 +646,7 @@ async function salvarNivelAcesso(botao) {
     if (resposta.status === 401) return fazerLogout();
     if (!resposta.ok) throw new Error(dados.error || 'Não foi possível alterar o nível de acesso.');
 
-    await carregarUsuariosAcesso();
+    await carregarUsuariosAcesso(false);
     status.textContent = `Nível de acesso atualizado para ${matricula}.`;
   } catch (error) {
     erro.textContent = error.message || 'Não foi possível alterar o nível de acesso.';
